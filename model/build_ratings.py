@@ -11,9 +11,13 @@ from scipy.optimize import minimize
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 from dixon_coles import DixonColes
 
-LEAGUES = {  # kod: (ad, ulke)
+LEAGUES = {  # football-data.co.uk kodu: uygulamadaki adi
     "T1": "Türkiye Süper Lig", "E0": "İngiltere Premier Lig", "SP1": "İspanya La Liga",
     "I1": "İtalya Serie A", "D1": "Almanya Bundesliga", "F1": "Fransa Ligue 1",
+    "E1": "İngiltere Championship", "E2": "İngiltere League One", "E3": "İngiltere League Two",
+    "D2": "Almanya 2. Bundesliga", "I2": "İtalya Serie B", "SP2": "İspanya La Liga 2", "F2": "Fransa Ligue 2",
+    "N1": "Hollanda Eredivisie", "B1": "Belçika Pro Lig", "P1": "Portekiz Liga", "G1": "Yunanistan Süper Lig",
+    "SC0": "İskoçya Premiership",
 }
 HALF_LIFE, WINDOW = 365, 365 * 3
 

@@ -27,6 +27,11 @@
     "union berlin": "Union Berlin", "werder bremen": "Werder Bremen", "hoffenheim": "Hoffenheim", "hamburg": "Hamburg", "st pauli": "St Pauli",
     "paris saint germain": "Paris SG", "psg": "Paris SG", "saint etienne": "St Etienne", "olympique marsilya": "Marseille", "marsilya": "Marseille",
     "not forest": "Nott'm Forest", "leeds utd": "Leeds", "man utd": "Man United", "man city": "Man City", "west ham": "West Ham",
+    "psv eindhoven": "PSV Eindhoven", "psv": "PSV Eindhoven", "ajax amsterdam": "Ajax", "feyenoord rotterdam": "Feyenoord", "az alkmaar": "AZ Alkmaar",
+    "sporting lizbon": "Sp Lisbon", "sporting": "Sp Lisbon", "sporting cp": "Sp Lisbon", "benfica": "Benfica", "porto": "Porto", "sporting braga": "Braga", "braga": "Braga",
+    "vitoria guimaraes": "Guimaraes", "club brugge": "Club Brugge", "royal antwerp": "Antwerp", "anderlecht": "Anderlecht", "genk": "Genk", "union saint gilloise": "St. Gilloise",
+    "olympiakos": "Olympiakos", "olympiacos": "Olympiakos", "panathinaikos": "Panathinaikos", "aek atina": "AEK", "aek athens": "AEK", "paok": "PAOK",
+    "celtic": "Celtic", "rangers": "Rangers", "glasgow rangers": "Rangers", "hearts": "Hearts", "heart of midlothian": "Hearts", "hibernian": "Hibernian",
     "olympique lyon": "Lyon", "lyon": "Lyon", "monaco": "Monaco", "lille": "Lille", "nice": "Nice", "lens": "Lens", "rennes": "Rennes", "brest": "Brest",
   };
 
