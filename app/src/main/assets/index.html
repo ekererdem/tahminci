@@ -85,6 +85,9 @@
   .bet .who b{width:104px;white-space:nowrap;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums}
   .verdict{margin-top:9px;font-size:13px;font-weight:700;padding:6px 9px;border-radius:8px;display:inline-block}
   .v-good{background:#12351f;color:#8ff0b5}.v-ok{background:#26303a;color:#c9d3dc}.v-bad{background:#3a1a1a;color:#ffb0b0}.v-sus{background:#3a2a10;color:#ffd27a}
+  .pick{display:flex;gap:12px;align-items:center;background:var(--card2);border-radius:14px;padding:12px;margin:8px 0}
+  .pick .pc{flex:0 0 62px;height:62px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:18px;color:#1a1200}
+  .pick .tx{flex:1}.pick .tx b{display:block;font-size:15px;line-height:1.3}.pick .tx span{font-size:12px;color:var(--mut)}
   .sec{font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--mut);font-weight:700;margin:14px 2px 4px}
   .form span{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:4px;font-size:10px;font-weight:800;margin-left:2px}
   .fG{background:#1f5a37;color:#9ff0c0}.fB{background:#4a4a2a;color:#eee3a0}.fM{background:#5a1f1f;color:#ffb0b0}
@@ -219,7 +222,12 @@ async function loadRemote(manual) {
     }
   } catch (e) { if (manual) Android.toast("Veri okunamadı"); }
 }
-const TEAM = (t) => t;
+const NICE = { Fenerbahce: "Fenerbahçe", Besiktas: "Beşiktaş", Buyuksehyr: "Başakşehir", Goztep: "Göztepe", Genclerbirligi: "Gençlerbirliği",
+  Kasimpasa: "Kasımpaşa", Eyupspor: "Eyüpspor", Corum: "Çorum FK", Karagumruk: "Karagümrük", "Nott'm Forest": "Nottingham Forest",
+  "Man United": "Manchester United", "Man City": "Manchester City", "Ath Madrid": "Atletico Madrid", "Ath Bilbao": "Athletic Bilbao",
+  "Sociedad": "Real Sociedad", "Betis": "Real Betis", "Vallecano": "Rayo Vallecano", "Espanol": "Espanyol", "Bayern Munich": "Bayern Münih",
+  "M'gladbach": "Mönchengladbach", "Ein Frankfurt": "Eintracht Frankfurt", "FC Koln": "Köln", "Paris SG": "PSG", "Sp Lisbon": "Sporting Lizbon" };
+const TEAM = (t) => NICE[t] || t;
 function fillLeagues() {
   const cur = $("league").value;
   $("league").innerHTML = Object.keys(R.leagues).map((c) => `<option value="${c}">${R.leagues[c].name}</option>`).join("");
@@ -227,7 +235,7 @@ function fillLeagues() {
   fillTeams();
 }
 function fillTeams() {
-  const L = R.leagues[$("league").value]; const o = L.teams.map((t) => `<option>${t}</option>`).join("");
+  const L = R.leagues[$("league").value]; const o = L.teams.map((t) => `<option value="${t.replace(/"/g, "&quot;")}">${TEAM(t)}</option>`).join("");
   $("home").innerHTML = o; $("away").innerHTML = o; $("away").selectedIndex = 1; showForm();
 }
 function formHtml(t) {
@@ -256,16 +264,40 @@ function heat(M) {
     for (let y = 0; y < 6; y++) { const v = M[x][y], a = v / mx;
       h += `<div style="background:rgba(245,184,61,${0.08 + a * 0.85});color:${a > 0.55 ? "#1a1200" : "var(--tx)"}">${v >= 0.0095 ? Math.round(v * 100) : ""}</div>`; }
   }
-  return h + `</div><div class="muted" style="margin-top:6px">Satır: ${$("home").value} golü · Sütun: ${$("away").value} golü · Değerler %</div>`;
+  return h + `</div><div class="muted" style="margin-top:6px">Satır: ${TEAM($("home").value)} golü · Sütun: ${TEAM($("away").value)} golü · Değerler %</div>`;
+}
+// Simülasyondan "şu olur reis, %X" cümleleri (her konudan bir tane)
+function simSummary(s, h, a) {
+  const out = [], P = (p) => p / 100;
+  // Sonuç: favori %50 üstüyse kazanır, değilse kaybetmez
+  const ms = s.ms, fav = ms["1"] >= ms["2"] ? ["1", h] : ["2", a];
+  if (ms[fav[0]] >= 50) out.push({ p: P(ms[fav[0]]), text: fav[1] + " kazanır" });
+  else out.push({ p: P(ms[fav[0]] + ms.X), text: fav[1] + " kaybetmez (kazanır ya da berabere)" });
+  // Gol: %60-80 arasına en yakın çizgi
+  const goal = [];
+  for (const [l, p] of s.goals) { const k = Math.floor(l);
+    goal.push({ p: P(p), text: k === 0 ? "Maçta gol olur" : `Maçta en az ${k + 1} gol olur` });
+    goal.push({ p: 1 - P(p), text: k === 0 ? "Maçta gol olmaz" : `Maçta en fazla ${k} gol olur` }); }
+  const near = (arr) => arr.filter((x) => x.p >= 0.55).sort((x, y) => Math.abs(x.p - 0.7) - Math.abs(y.p - 0.7))[0];
+  const g = near(goal); if (g) out.push(g);
+  out.push(s.btts >= 50 ? { p: P(s.btts), text: "İki takım da gol atar" } : { p: 1 - P(s.btts), text: "Takımlardan en az biri gol atamaz" });
+  const iy = s.htGoals[0][1]; out.push(iy >= 50 ? { p: P(iy), text: "İlk yarıda gol olur" } : { p: 1 - P(iy), text: "İlk yarıda gol olmaz" });
+  if (s.corners) { const c = [];
+    for (const [l, p] of s.corners.lines) { const k = Math.floor(l);
+      c.push({ p: P(p), text: `Maçta en az ${k + 1} korner olur` }); c.push({ p: 1 - P(p), text: `Maçta en fazla ${k} korner olur` }); }
+    const cc = near(c); if (cc) out.push(cc); }
+  return out.sort((x, y) => y.p - x.p);
 }
 function runSim() {
   if (!R) return;
-  const lg = $("league").value, h = $("home").value, a = $("away").value;
-  if (h === a) { Android.toast("İki farklı takım seç"); return; }
+  const lg = $("league").value, hv = $("home").value, av = $("away").value, h = TEAM(hv), a = TEAM(av);
+  if (hv === av) { Android.toast("İki farklı takım seç"); return; }
   const adj = { home: $("adjH").value / 100, away: $("adjA").value / 100 };
-  const t0 = performance.now(), sim = Engine.simulate(R.leagues[lg], h, a, simN, adj), s = Engine.summarize(sim);
+  const t0 = performance.now(), sim = Engine.simulate(R.leagues[lg], hv, av, simN, adj), s = Engine.summarize(sim);
   const ms = Math.round(performance.now() - t0);
-  let html = `<div class="card"><h3>Maç Sonucu · ${simN.toLocaleString("tr-TR")} maç</h3>
+  let html = `<div class="sec">🎯 Reis, kısaca</div>${simSummary(s, h, a).map(pickCard).join("")}
+    <div class="sec">Detaylar</div>
+    <div class="card"><h3>Maç Sonucu · ${simN.toLocaleString("tr-TR")} maç</h3>
     ${big3(s.ms, [h, "Beraberlik", a])}
     <div class="muted" style="margin-top:8px">Beklenen gol: <b>${s.xg[0].toFixed(2)}</b> – <b>${s.xg[1].toFixed(2)}</b> · ort. toplam ${s.avgGoals.toFixed(2)} · ${ms} ms</div></div>`;
   html += `<div class="card"><h3>En olası skorlar</h3><div class="chips">${s.scores.map(([k, p]) => `<div class="chip">${k} <b>%${f1(p)}</b></div>`).join("")}</div>
@@ -309,8 +341,9 @@ let finding = false;
 async function findB(h, a) {
   if (finding || !R) return; finding = true;
   h = h || $("home").value; a = a || $("away").value;
+  const hn = TEAM(h), an = TEAM(a);
   document.querySelector('nav button[data-t="live"]').click();
-  const msg = (t) => ($("liveOut").innerHTML = `<div class="card" style="text-align:center"><b>${h} – ${a}</b><div class="muted" style="margin-top:6px">${t}</div></div>`);
+  const msg = (t) => ($("liveOut").innerHTML = `<div class="card" style="text-align:center"><b>${hn} – ${an}</b><div class="muted" style="margin-top:6px">${t}</div></div>`);
   const code = Bilyoner.finderCode(Bilyoner.keysFor(h), Bilyoner.keysFor(a));
   const lists = [["https://www.bilyoner.com/iddaa/futbol", "Bilyoner bülteninde aranıyor…"], ["https://www.bilyoner.com/canli-iddaa/futbol", "Canlı maçlarda aranıyor…"]];
   try {
@@ -334,7 +367,7 @@ async function findB(h, a) {
         if (j && j.seen) msg(label + " (" + j.seen + " maç tarandı)");
       }
     }
-    $("liveOut").innerHTML = `<div class="card"><b>${h} – ${a} Bilyoner'de bulunamadı.</b><div class="muted">Maç bültende henüz olmayabilir ya da takım adı farklı yazılıyor olabilir. Bilyoner'de maçı açıp "Paylaş → Tahminci" ile gönderebilirsin.</div></div>`;
+    $("liveOut").innerHTML = `<div class="card"><b>${hn} – ${an} Bilyoner'de bulunamadı.</b><div class="muted">Maç bültende henüz olmayabilir ya da takım adı farklı yazılıyor olabilir. Bilyoner'de maçı açıp "Paylaş → Tahminci" ile gönderebilirsin.</div></div>`;
   } finally { finding = false; }
 }
 function failB() {
@@ -372,22 +405,40 @@ function renderLive(r) {
     head = `<div class="score"><div class="t">${st.homeLabel}</div><div style="text-align:center"><span class="tag">MAÇ ÖNCESİ</span></div><div class="t">${st.awayLabel}</div></div>`;
   }
   const rows = Engine.compare(model, r.odds);
-  const H = st.homeLabel, A = st.awayLabel;
-  const cards = rows.map((x) => ({ ...x, text: betText(x.market, x.pick, H, A), v: verdict(x) }));
-  const good = cards.filter((c) => c.v.k === "good").slice(0, 6);
-  const sus = cards.filter((c) => c.v.k === "sus").slice(0, 5);
-  const ok = cards.filter((c) => c.v.k === "ok");
-  const marg = rows.find((x) => x.margin != null);
+  const picks = simplePicks(rows, st.homeLabel, st.awayLabel);
   $("liveOut").innerHTML = `<div class="card">${head}${st.leagueMismatch ? '<div class="tag warn">Takımlar farklı liglerden eşleşti, kontrol et</div>' : ""}${info}</div>
-    <div class="card"><div class="muted" style="font-size:13px">
-      Her bahis için iki tahmin var: <b style="color:var(--acc)">bizim model</b> ve <b style="color:var(--b)">Bilyoner</b>.
-      "100 maçta 61" = bu maç 100 kere oynansa bu sonuç 61 kere çıkar demek.${marg ? ` Bilyoner oranlara yaklaşık <b>%${Math.round(marg.margin * 100)}</b> kendi payını ekliyor; bunu çıkarıp gösteriyorum.` : ""}</div></div>
-    <div class="sec">👍 Modelin beğendikleri</div>
-    ${good.length ? good.map(betCard).join("") : '<div class="card muted">Model şu an hiçbir bahsi değerli bulmuyor. Bilyoner payını da ekleyince hepsi aleyhine.</div>'}
-    ${sus.length ? `<div class="sec">⚠️ Model ile Bilyoner çok farklı düşünüyor</div><div class="muted" style="margin:0 2px 4px;font-size:12px">Fark çok büyükse genelde modelin bilmediği bir şey vardır (sakatlık, kadro, haber). Bunlara güvenme.</div>${sus.map(betCard).join("")}` : ""}
-    <details class="card"><summary><b>Diğer bahisler (${ok.length + cards.filter((c) => c.v.k === "bad").length})</b></summary>
-      ${cards.filter((c) => c.v.k === "ok" || c.v.k === "bad").map(betCard).join("")}</details>
-    <div class="muted" style="text-align:center;margin:6px 0 14px">Bu bir tahmin aracıdır, kazanma garantisi vermez.</div>`;
+    <div class="sec">🎯 Reis, bu maç için kuponum</div>
+    ${picks.length ? picks.map(pickCard).join("") : '<div class="card muted">Bu maçta gönül rahatlığıyla önerebileceğim bir şey yok reis.</div>'}
+    <div class="muted" style="text-align:center;margin:8px 0 14px">Yüzdeler tahmindir, garanti değildir.</div>`;
+}
+// Arka planda: model + Bilyoner'in (payı çıkarılmış) tahmininin ortalaması. İkisi çok ayrışıyorsa o bahis hiç gösterilmez.
+function family(mk) {
+  if (mk.startsWith("İY Gol")) return "iygol";
+  if (mk.startsWith("Gol ")) return "gol";
+  if (mk.startsWith("Ev Gol") || mk.startsWith("Dep Gol")) return mk.slice(0, 3) + "gol";
+  if (mk.includes("Korner")) return "korner";
+  if (mk === "Maç Sonucu" || mk === "Çifte Şans") return "sonuc";
+  if (mk === "Karşılıklı Gol") return "kg";
+  if (mk === "İlk Yarı Sonucu") return "iy";
+  return null;
+}
+function simplePicks(rows, H, A) {
+  const best = {};
+  for (const x of rows) {
+    const f = family(x.market); if (!f || x.fair == null) continue;
+    if (Math.abs(x.model - x.fair) > 0.15) continue;            // görüş ayrılığı: önermiyoruz
+    const p = (x.model + x.fair) / 2;
+    if (p < 0.5 || x.odd < 1.25) continue;                       // zayıf ya da oranı çok düşük
+    const score = p * x.odd - 1 + 0.3 * p;
+    if (!best[f] || score > best[f].score) best[f] = { ...x, p, score, text: betText(x.market, x.pick, H, A) };
+  }
+  return Object.values(best).sort((a, b) => b.p - a.p).slice(0, 5);
+}
+function pickColor(p) { return p >= 0.7 ? "var(--g)" : p >= 0.6 ? "var(--acc)" : "#E8A15A"; }
+function pickCard(c) {
+  const pct = Math.round(c.p * 100);
+  return `<div class="pick"><div class="pc" style="background:${pickColor(c.p)}">%${pct}</div>
+    <div class="tx"><b>${c.text}, reis.</b><span>Bu kuponu yaparsan %${pct} tutar${c.odd ? " · Bilyoner oranı " + c.odd.toFixed(2) : ""}</span></div></div>`;
 }
 // Bahisleri düz Türkçeye çevir
 function betText(mk, pick, H, A) {
