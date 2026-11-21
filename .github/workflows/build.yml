@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 4 * * *"      # her gün 07:17 (TR): takım güçlerini yeniden hesapla
+    - cron: "17 4,16 * * *"   # günde iki kez (07:17 ve 19:17 TR): yeni sonuçlar ve takım güçleri
   workflow_dispatch:
 
 permissions:

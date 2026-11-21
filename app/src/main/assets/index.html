@@ -138,7 +138,7 @@
         <button class="btn" onclick="openB()">Aç ve oku</button>
         <button class="ghost" style="flex:0 0 auto" onclick="Android.bilyonerShow(true)">Sayfayı gör</button>
       </div>
-      <div class="toggle" style="margin-top:8px"><span class="muted">Otomatik güncelle (30 sn)</span><div class="sw" id="autoSw" onclick="toggleAuto()"></div></div>
+      <div class="muted" style="margin-top:8px;font-size:12px">Maç açıkken bu ekran 30 saniyede bir kendiliğinden yenilenir.</div>
     </div>
     <div id="liveOut"><div class="muted" style="text-align:center;padding:20px">Maç öncesi ya da canlı bir maçın Bilyoner linkini yapıştır. Oranlar okunur ve modelle karşılaştırılır.</div></div>
   </section>
@@ -348,7 +348,7 @@ function openB() {
   let u = $("bUrl").value.trim(); if (!u) { pasteUrl(); u = $("bUrl").value.trim(); }
   if (!/bilyoner\.com/.test(u)) { Android.toast("Bilyoner maç linki yapıştır"); return; }
   try { localStorage.setItem("bUrl", u); } catch (e) {}
-  Android.bilyonerLoad(u);
+  liveLoaded = false; Android.bilyonerLoad(u);
   $("liveOut").innerHTML = `<div class="card muted" style="text-align:center">Sayfa açılıyor…</div>`;
   startReading(3500);
 }
@@ -362,7 +362,7 @@ const bEval = (code) => call("bilyonerEval", code);
 let finding = false;
 // Simülasyonda seçilen maçı Bilyoner listesinde bulur (önce maç öncesi bülten, sonra canlı)
 async function findB(h, a) {
-  if (finding || !R) return; finding = true;
+  if (finding || !R) return; finding = true; liveLoaded = false;
   h = h || $("home").value; a = a || $("away").value;
   const hn = TEAM(h), an = TEAM(a);
   document.querySelector('nav button[data-t="live"]').click();
@@ -403,12 +403,14 @@ async function readB(silent) {
   const txt = await call("bilyonerRead"); if (!txt) return false;
   lastText = txt; const r = Bilyoner.parse(txt, R);
   if (!r.state.ok || !Object.keys(r.odds).length) return false;
-  renderLive(r); return true;
+  renderLive(r); liveLoaded = true; return true;
 }
-function toggleAuto() {
-  const on = !autoTimer; $("autoSw").classList.toggle("on", on);
-  if (on) autoTimer = setInterval(() => readB(true), 30000); else { clearInterval(autoTimer); autoTimer = null; }
-}
+// Canlı ekran açıkken ve bir maç okunmuşken 30 saniyede bir kendiliğinden yenile
+let liveLoaded = false;
+setInterval(() => {
+  const onLive = $("t-live").classList.contains("on");
+  if (liveLoaded && onLive && document.visibilityState === "visible" && !finding) readB(true);
+}, 30000);
 function renderLive(r) {
   const st = r.state, L = R.leagues[st.league];
   let model, head, info = "";
@@ -592,6 +594,10 @@ window.onSharedUrl = (u) => { $("bUrl").value = u; document.querySelector('nav b
 $("sVer").textContent = Android.appVersion();
 try { const u = localStorage.getItem("bUrl"); if (u) $("bUrl").value = u; } catch (e) {}
 loadLocal(); loadRemote(false); checkUpdate(false);
+let lastDataCheck = Date.now();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && Date.now() - lastDataCheck > 3 * 3600 * 1000) { lastDataCheck = Date.now(); loadRemote(false); }
+});
 </script>
 </body>
 </html>
