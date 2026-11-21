@@ -87,6 +87,11 @@ def league_model(d, today):
         form[t] = "".join("G" if (r.HomeTeam == t and r.FTR == "H") or (r.AwayTeam == t and r.FTR == "A")
                           else "B" if r.FTR == "D" else "M" for r in m.itertuples())
     out["form"] = form
+    # Son 30 günün sonuçları: uygulamadaki "karne" önerilerin tutup tutmadığını buradan işaretler
+    rec = d[d.Date >= d.Date.max() - pd.Timedelta(days=30)]
+    iv = lambda v: None if pd.isna(v) else int(v)
+    out["recent"] = [[r.Date.strftime("%Y-%m-%d"), r.HomeTeam, r.AwayTeam, iv(r.FTHG), iv(r.FTAG), iv(r.HTHG), iv(r.HTAG),
+                      iv(getattr(r, "HC", None)), iv(getattr(r, "AC", None))] for r in rec.itertuples()]
     return out
 
 def main():

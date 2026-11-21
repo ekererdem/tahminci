@@ -143,6 +143,9 @@
     <div id="liveOut"><div class="muted" style="text-align:center;padding:20px">Maç öncesi ya da canlı bir maçın Bilyoner linkini yapıştır. Oranlar okunur ve modelle karşılaştırılır.</div></div>
   </section>
 
+  <!-- ================= KARNE ================= -->
+  <section class="tab" id="t-karne"><div id="karneOut"></div></section>
+
   <!-- ================= AYARLAR ================= -->
   <section class="tab" id="t-set">
     <div class="card">
@@ -173,6 +176,7 @@
 <nav>
   <button class="on" data-t="sim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7l4 3-1.5 4.5h-5L8 10z"/></svg>Simülasyon</button>
   <button data-t="live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Canlı</button>
+  <button data-t="karne"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h9"/></svg>Karne</button>
   <button data-t="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Ayarlar</button>
 </nav>
 
@@ -203,6 +207,7 @@ function setData(j, src) {
   $("dataInfo").innerHTML = "veri: " + R.generated.slice(0, 10);
   $("sGen").textContent = R.generated; $("sLg").textContent = names;
   fillLeagues();
+  try { settleAll(); } catch (e) {}
 }
 function loadLocal() {
   let s = null; try { s = localStorage.getItem("ratings"); } catch (e) {}
@@ -407,6 +412,7 @@ function renderLive(r) {
   }
   const rows = Engine.compare(model, r.odds);
   const picks = simplePicks(rows, st.homeLabel, st.awayLabel);
+  if (!st.live && picks.length) savePicks(st, picks);
   $("liveOut").innerHTML = `<div class="card">${head}${st.leagueMismatch ? '<div class="tag warn">Takımlar farklı liglerden eşleşti, kontrol et</div>' : ""}${info}</div>
     <div class="sec">🎯 Reis, bu maç için kuponum</div>
     ${picks.length ? picks.map(pickCard).join("") : '<div class="card muted">Bu maçta gönül rahatlığıyla önerebileceğim bir şey yok reis.</div>'}
@@ -490,6 +496,56 @@ function betCard(c) {
     <div class="verdict v-${c.v.k}">${c.v.t}</div></div>`;
 }
 
+// ---------- Karne: maç öncesi önerileri sakla, sonuç gelince işaretle ----------
+const KEY = "karne";
+function loadK() { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { return []; } }
+function saveK(k) { try { localStorage.setItem(KEY, JSON.stringify(k)); } catch (e) {} }
+function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function savePicks(st, picks) {
+  const k = loadK(), id = st.league + "|" + st.home + "|" + st.away;
+  // aynı maçın sonuçlanmamış kaydı varsa en son okunanla değiştir (oranlar maça kadar değişir)
+  const i = k.findIndex((m) => m.id === id && !m.result);
+  const rec = { id, league: st.league, home: st.home, away: st.away, hl: st.homeLabel, al: st.awayLabel, date: today(), saved: Date.now(),
+    picks: picks.map((c) => ({ mk: c.market, pk: c.pick, text: c.text, p: c.p, odd: c.odd, v: c.v })) };
+  if (i >= 0) k[i] = rec; else k.push(rec);
+  saveK(k.slice(-400));
+}
+function settleAll() {
+  if (!R) return; const k = loadK(); let changed = false;
+  for (const m of k) {
+    if (m.result) continue; const L = R.leagues[m.league]; if (!L || !L.recent) continue;
+    const r = L.recent.find((x) => x[1] === m.home && x[2] === m.away && x[0] >= addDays(m.date, -1) && x[0] <= addDays(m.date, 10));
+    if (!r) continue;
+    m.result = { date: r[0], fh: r[3], fa: r[4], hh: r[5], ha: r[6], ch: r[7], ca: r[8] };
+    for (const p of m.picks) p.ok = Engine.settle(p.mk, p.pk, m.result);
+    changed = true;
+  }
+  if (changed) saveK(k);
+}
+function addDays(d, n) { const t = new Date(d + "T12:00:00"); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); }
+function renderKarne() {
+  settleAll();
+  const k = loadK().slice().reverse(), done = k.filter((m) => m.result), wait = k.filter((m) => !m.result);
+  const all = done.flatMap((m) => m.picks.filter((p) => p.ok != null));
+  const stat = (arr) => { const n = arr.length, hit = arr.filter((p) => p.ok).length, exp = arr.reduce((s, p) => s + p.p, 0);
+    const profit = arr.reduce((s, p) => s + (p.ok ? 100 * p.odd - 100 : -100), 0); return { n, hit, exp, profit }; };
+  const row = (label, a) => { const s = stat(a); if (!s.n) return "";
+    return `<div class="kv"><span>${label}</span><span class="p">${s.hit}/${s.n} tuttu · <span class="${s.profit >= 0 ? "good" : "bad"}">${s.profit >= 0 ? "+" : ""}${Math.round(s.profit)} TL</span></span></div>`; };
+  const S = stat(all);
+  let h = `<div class="card"><h3>Karne</h3>`;
+  if (!S.n) h += `<div class="muted">Henüz sonuçlanan öneri yok reis. Bilyoner'den maç öncesi oranlara baktığın her maçın önerileri buraya kaydedilir. Maç sonuçları genelde 1-3 gün içinde veriye düşer, o zaman burada tuttu/tutmadı görünür.</div>`;
+  else h += `<div class="big3"><div><b>${S.hit}/${S.n}</b><span>tutan öneri</span></div><div><b>%${Math.round(100 * S.hit / S.n)}</b><span>tutma oranı</span></div><div><b>%${Math.round(100 * S.exp / S.n)}</b><span>tahmin edilen</span></div></div>
+    <div class="muted" style="margin:10px 0 6px">"Tahmin edilen" yakın çıkıyorsa yüzdeler doğru demektir. Her öneriye 100 TL basılsaydı:</div>
+    ${row("✅ Oranı iyi denenler", all.filter((p) => p.v === "good"))}${row("➖ Oranı normal denenler", all.filter((p) => p.v === "ok"))}${row("❌ Değmez denenler", all.filter((p) => p.v === "bad"))}${row("Hepsi", all)}`;
+  h += `</div>`;
+  const mcard = (m) => `<div class="card"><div class="row"><b>${m.hl} – ${m.al}</b><span class="muted" style="flex:0 0 auto">${m.result ? `<b style="color:var(--acc)">${m.result.fh}-${m.result.fa}</b>` : "bekliyor"} · ${m.date.slice(5).split("-").reverse().join(".")}</span></div>
+    ${m.picks.map((p) => `<div class="kv"><span>${p.ok == null ? "⏳" : p.ok ? "✅" : "❌"} ${p.text}</span><span class="muted" style="flex:0 0 auto">%${Math.round(p.p * 100)} · ${p.odd.toFixed(2)}</span></div>`).join("")}</div>`;
+  if (wait.length) h += `<div class="sec">Sonuç bekleyenler</div>` + wait.map(mcard).join("");
+  if (done.length) h += `<div class="sec">Sonuçlananlar</div>` + done.map(mcard).join("");
+  if (k.length) h += `<button class="ghost small" style="width:100%;margin:6px 0 16px" onclick="if(confirm('Karne silinsin mi?')){saveK([]);renderKarne()}">Karneyi sıfırla</button>`;
+  $("karneOut").innerHTML = h;
+}
+
 // ---------- Güncelleme ----------
 async function checkUpdate(manual) {
   const r = await call("checkUpdate");
@@ -509,6 +565,7 @@ window.onUpdateProgress = (p) => { const t = p >= 0 ? "%" + p : p === -2 ? "Hata
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("on")); b.classList.add("on");
   document.querySelectorAll(".tab").forEach((x) => x.classList.remove("on")); $("t-" + b.dataset.t).classList.add("on");
+  if (b.dataset.t === "karne") renderKarne();
   window.scrollTo(0, 0);
 }));
 window.onSharedUrl = (u) => { $("bUrl").value = u; document.querySelector('nav button[data-t="live"]').click(); openB(); };

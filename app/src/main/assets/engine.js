@@ -208,6 +208,27 @@
     return rows.sort((a, b) => b.ev - a.ev);
   }
 
-  const api = { simulate, summarize, live, liveMarkets, preMarkets, compare, prematch, scoreMatrix, LIVE };
+  // Bir bahsin gerçek sonuca göre tutup tutmadığı. r = {fh,fa,hh,ha,ch,ca}; bilinmiyorsa null
+  function settle(mk, pick, r) {
+    const res = (a, b) => (a > b ? "1" : a === b ? "X" : "2");
+    const ou = (v, line) => (v == null ? null : pick === "Alt" ? v < line : v > line);
+    const t = r.fh + r.fa; let m;
+    if (mk === "Maç Sonucu") return res(r.fh, r.fa) === pick;
+    if (mk === "Çifte Şans") return pick.includes(res(r.fh, r.fa)) || (pick === "12" && r.fh !== r.fa);
+    if (mk === "Karşılıklı Gol") return (r.fh > 0 && r.fa > 0) === (pick === "Var");
+    if (mk === "İlk Yarı Sonucu") return r.hh == null ? null : res(r.hh, r.ha) === pick;
+    if (mk === "İY/MS") return r.hh == null ? null : res(r.hh, r.ha) + "/" + res(r.fh, r.fa) === pick;
+    if ((m = mk.match(/^Gol (\d+),5$/))) return ou(t, +m[1] + 0.5);
+    if ((m = mk.match(/^İY Gol (\d+),5$/))) return r.hh == null ? null : ou(r.hh + r.ha, +m[1] + 0.5);
+    if ((m = mk.match(/^Ev Gol (\d+),5$/))) return ou(r.fh, +m[1] + 0.5);
+    if ((m = mk.match(/^Dep Gol (\d+),5$/))) return ou(r.fa, +m[1] + 0.5);
+    if ((m = mk.match(/^Korner (\d+),5$/))) return r.ch == null ? null : ou(r.ch + r.ca, +m[1] + 0.5);
+    if ((m = mk.match(/^Ev Korner (\d+),5$/))) return ou(r.ch, +m[1] + 0.5);
+    if ((m = mk.match(/^Dep Korner (\d+),5$/))) return ou(r.ca, +m[1] + 0.5);
+    if (mk === "Daha Fazla Korner") return r.ch == null ? null : (pick === "Ev" ? r.ch > r.ca : pick === "Dep" ? r.ch < r.ca : r.ch === r.ca);
+    return null;
+  }
+
+  const api = { settle, simulate, summarize, live, liveMarkets, preMarkets, compare, prematch, scoreMatrix, LIVE };
   if (typeof module !== "undefined") module.exports = api; else root.Engine = api;
 })(this);
