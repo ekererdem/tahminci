@@ -83,6 +83,7 @@
 <header>
   <div class="logo">T</div><h1>Tahminci</h1>
   <div class="sub" id="dataInfo">veri yükleniyor…</div>
+  <button class="ghost small" style="flex:0 0 auto" onclick="updateNow()" id="hdrUpd">⟳ Güncelle</button>
 </header>
 <main>
   <div id="updBox" class="card update hide">
@@ -108,6 +109,8 @@
       </details>
       <div style="height:12px"></div>
       <button class="btn" onclick="runSim()">⚽ Maçı oynat</button>
+      <div style="height:8px"></div>
+      <button class="ghost" style="width:100%" onclick="findB()">📊 Bilyoner oranlarını getir ve karşılaştır</button>
     </div>
     <div id="simOut"></div>
   </section>
@@ -279,11 +282,49 @@ function openB() {
   let u = $("bUrl").value.trim(); if (!u) { pasteUrl(); u = $("bUrl").value.trim(); }
   if (!/bilyoner\.com/.test(u)) { Android.toast("Bilyoner maç linki yapıştır"); return; }
   try { localStorage.setItem("bUrl", u); } catch (e) {}
-  lastB = null; Android.bilyonerLoad(u);
+  Android.bilyonerLoad(u);
   $("liveOut").innerHTML = `<div class="card muted" style="text-align:center">Sayfa açılıyor…</div>`;
+  startReading(3500);
+}
+function startReading(delay) {
   let tries = 0;
   const tryRead = async () => { tries++; const ok = await readB(true); if (!ok && tries < 8) setTimeout(tryRead, 2000); else if (!ok) failB(); };
-  setTimeout(tryRead, 3500);
+  setTimeout(tryRead, delay);
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const bEval = (code) => call("bilyonerEval", code);
+let finding = false;
+// Simülasyonda seçilen maçı Bilyoner listesinde bulur (önce maç öncesi bülten, sonra canlı)
+async function findB(h, a) {
+  if (finding || !R) return; finding = true;
+  h = h || $("home").value; a = a || $("away").value;
+  document.querySelector('nav button[data-t="live"]').click();
+  const msg = (t) => ($("liveOut").innerHTML = `<div class="card" style="text-align:center"><b>${h} – ${a}</b><div class="muted" style="margin-top:6px">${t}</div></div>`);
+  const code = Bilyoner.finderCode(Bilyoner.keysFor(h), Bilyoner.keysFor(a));
+  const lists = [["https://www.bilyoner.com/iddaa/futbol", "Bilyoner bülteninde aranıyor…"], ["https://www.bilyoner.com/canli-iddaa/futbol", "Canlı maçlarda aranıyor…"]];
+  try {
+    for (const [url, label] of lists) {
+      msg(label); Android.bilyonerLoad(url);
+      let ready = false;
+      for (let i = 0; i < 20 && !ready; i++) { await sleep(1000);
+        const n = await bEval("document.querySelectorAll('.event-row-prematch, .event-row-live').length"); ready = n > 0; }
+      if (!ready) continue;
+      await bEval(code);
+      for (let i = 0; i < 70; i++) {
+        await sleep(1000);
+        const u = await call("bilyonerUrl");
+        if (u && /mac-karti/.test(u)) {
+          $("bUrl").value = u; try { localStorage.setItem("bUrl", u); } catch (e) {}
+          msg("Bulundu, oranlar okunuyor…"); finding = false; startReading(3000); return;
+        }
+        const st = await bEval("JSON.stringify(window.__tf||null)");
+        let j = null; try { j = JSON.parse(st); } catch (e) {}
+        if (j && j.state === "yok") break;
+        if (j && j.seen) msg(label + " (" + j.seen + " maç tarandı)");
+      }
+    }
+    $("liveOut").innerHTML = `<div class="card"><b>${h} – ${a} Bilyoner'de bulunamadı.</b><div class="muted">Maç bültende henüz olmayabilir ya da takım adı farklı yazılıyor olabilir. Bilyoner'de maçı açıp "Paylaş → Tahminci" ile gönderebilirsin.</div></div>`;
+  } finally { finding = false; }
 }
 function failB() {
   $("liveOut").innerHTML = `<div class="card"><b>Sayfa okunamadı.</b><div class="muted">Sayfa yüklenmemiş olabilir ya da takımlar tanınmadı. "Sayfayı gör" ile kontrol et, sonra tekrar "Aç ve oku"ya bas.</div>
@@ -340,8 +381,14 @@ async function checkUpdate(manual) {
   if (r && r !== "none") { $("updBox").classList.remove("hide"); $("updTxt").textContent = "Sürüm " + r; }
   else if (manual) Android.toast(r === "none" ? "Uygulama güncel" : "Kontrol edilemedi");
 }
+async function updateNow() {
+  $("hdrUpd").textContent = "Bakılıyor…";
+  const r = await call("checkUpdate");
+  if (r && r !== "none") { $("updBox").classList.remove("hide"); $("updTxt").textContent = "Sürüm " + r; $("hdrUpd").textContent = "İndiriliyor…"; Android.installUpdate(); }
+  else { $("hdrUpd").textContent = "⟳ Güncelle"; Android.toast(r === "none" ? "Uygulama güncel (" + Android.appVersion() + ")" : "Kontrol edilemedi"); }
+}
 function installUpdate() { $("updBtn").textContent = "İndiriliyor…"; Android.installUpdate(); }
-window.onUpdateProgress = (p) => { $("updBtn").textContent = p >= 0 ? "%" + p : p === -2 ? "Hata" : "İndiriliyor…"; };
+window.onUpdateProgress = (p) => { const t = p >= 0 ? "%" + p : p === -2 ? "Hata" : "İndiriliyor…"; $("updBtn").textContent = t; $("hdrUpd").textContent = p === -2 ? "⟳ Güncelle" : t; };
 
 // ---------- Sekmeler ----------
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {

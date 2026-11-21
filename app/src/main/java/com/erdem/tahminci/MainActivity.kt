@@ -151,6 +151,15 @@ class MainActivity : Activity() {
             }
         }
 
+        /** Bilyoner sayfasında kod çalıştırıp sonucu (metin) döndürür: maç arama için */
+        @JavascriptInterface
+        fun bilyonerEval(code: String, id: Int) = runOnUiThread {
+            bil.evaluateJavascript(code) { r -> js("window.__cb($id, ${if (r == null) "null" else r})") }
+        }
+
+        @JavascriptInterface
+        fun bilyonerUrl(id: Int) = runOnUiThread { cb(id, bil.url) }
+
         @JavascriptInterface
         fun appVersion(): String = "${Update.currentName(this@MainActivity)} (${Update.current(this@MainActivity)})"
 

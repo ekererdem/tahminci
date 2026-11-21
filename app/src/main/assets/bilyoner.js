@@ -26,6 +26,7 @@
     "eintracht frankfurt": "Ein Frankfurt", "leipzig": "RB Leipzig", "koln": "FC Koln", "mainz": "Mainz", "mainz 05": "Mainz",
     "union berlin": "Union Berlin", "werder bremen": "Werder Bremen", "hoffenheim": "Hoffenheim", "hamburg": "Hamburg", "st pauli": "St Pauli",
     "paris saint germain": "Paris SG", "psg": "Paris SG", "saint etienne": "St Etienne", "olympique marsilya": "Marseille", "marsilya": "Marseille",
+    "not forest": "Nott'm Forest", "leeds utd": "Leeds", "man utd": "Man United", "man city": "Man City", "west ham": "West Ham",
     "olympique lyon": "Lyon", "lyon": "Lyon", "monaco": "Monaco", "lille": "Lille", "nice": "Nice", "lens": "Lens", "rennes": "Rennes", "brest": "Brest",
   };
 
@@ -61,6 +62,8 @@
     "Ev Sahibi Korner Alt/Üst": { line: "Ev Korner" }, "Deplasman Korner Alt/Üst": { line: "Dep Korner" },
     "Hangi Takım Daha Fazla Korner Kullanır?": { key: () => "Daha Fazla Korner", pick: { "Ev": "Ev", "Eşit": "Eşit", "Dep": "Dep" } },
     "İlk Yarı Sonucu": { key: () => "İlk Yarı Sonucu", pick: { "İY 1": "1", "İY X": "X", "İY 2": "2", "1.Y 1": "1", "1.Y X": "X", "1.Y 2": "2", "1": "1", "X": "X", "2": "2" } },
+    "Çifte Şans": { key: () => "Çifte Şans", pick: { "ÇŞ 1-X": "1X", "ÇŞ 1-2": "12", "ÇŞ X-2": "X2" } },
+    "İlk Yarı / Maç Sonucu": { key: () => "İY/MS", pick: Object.fromEntries(["1", "X", "2"].flatMap((a) => ["1", "X", "2"].map((b) => [a + "/" + b, a + "/" + b]))) },
     "İlk Yarı Alt/Üst": { line: "İY Gol" }, "İlk Yarı Gol Alt/Üst": { line: "İY Gol" }, "İlk Yarı Toplam Gol Alt/Üst": { line: "İY Gol" },
   };
 
@@ -116,6 +119,37 @@
     return { state: st, odds };
   }
 
-  const api = { parse, matchTeam, teamIndex, norm };
+  // Bir takımın Bilyoner listesinde nasıl yazılabileceği (normalize edilmiş biçimler)
+  function keysFor(team) {
+    const k = new Set([norm(team)]);
+    for (const a in ALIAS) if (ALIAS[a] === team) k.add(a);
+    return [...k].filter((x) => x.length >= 3);
+  }
+  // Bilyoner listesinde (maç öncesi ya da canlı) iki takımı arayan kod: kaydırarak tarar, bulunca maça gider.
+  function finderCode(hk, ak) {
+    return `(function(){
+      var TR=${JSON.stringify(TR)}, STOP=${JSON.stringify([...STOP])}, HK=${JSON.stringify(hk)}, AK=${JSON.stringify(ak)};
+      function norm(s){s=String(s).replace(/[İIıŞşĞğÜüÖöÇçéèáíóñã]/g,function(c){return TR[c]||c}).toLowerCase().replace(/[^a-z0-9 ]/g,' ');
+        return s.split(/\\s+/).filter(function(w){return w&&STOP.indexOf(w)<0}).join(' ');}
+      function hit(n,keys){if(/(^| )(u\\d\\d|b|c|ii|iii|kadin|women|res|reserves)( |$)/.test(n))return false;for(var i=0;i<keys.length;i++){var k=keys[i];if(n===k||(n.length>=4&&(k.indexOf(n)===0||n.indexOf(k)===0)))return true;}return false;}
+      window.__tf={state:'tarıyor',seen:0};
+      var sel='a.event-row-prematch__cells__teams, .event-row-live__title__teams__names, a[href*="/mac-karti/futbol/"]';
+      function look(){var els=document.querySelectorAll(sel);window.__tf.seen=Math.max(window.__tf.seen,els.length);
+        for(var i=0;i<els.length;i++){var e=els[i];var t=(e.getAttribute('title')||e.textContent||'').replace(/\\s+/g,' ');
+          var p=t.split(' - ');if(p.length<2)continue;
+          if(hit(norm(p[0]),HK)&&hit(norm(p.slice(1).join(' - ')),AK)){
+            var h=e.getAttribute('href');window.__tf={state:'bulundu',title:t.trim()};
+            if(h){location.href=h;}else{e.click();}return true;}}return false;}
+      var sc=document.querySelector('.events-container__content');
+      while(sc&&!(sc.scrollHeight>sc.clientHeight+50&&/(auto|scroll)/.test(getComputedStyle(sc).overflowY)))sc=sc.parentElement;
+      var tg=sc||document.scrollingElement,last=-1,steps=0;
+      tg.scrollTop=0;
+      (function step(){if(look())return;
+        if(steps>450||(tg.scrollTop===last&&steps>3)){window.__tf={state:'yok'};return;}
+        last=tg.scrollTop;tg.scrollTop+=tg.clientHeight*0.85;steps++;setTimeout(step,90);})();
+      return 'başladı';})()`;
+  }
+
+  const api = { parse, matchTeam, teamIndex, norm, keysFor, finderCode };
   if (typeof module !== "undefined") module.exports = api; else root.Bilyoner = api;
 })(this);

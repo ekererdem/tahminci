@@ -167,6 +167,7 @@
       "Maç Sonucu": { "1": P((i) => S.gh[i] > S.ga[i]), X: P((i) => S.gh[i] === S.ga[i]), "2": P((i) => S.gh[i] < S.ga[i]) },
       "Karşılıklı Gol": { Var: P((i) => S.gh[i] > 0 && S.ga[i] > 0), Yok: P((i) => !(S.gh[i] > 0 && S.ga[i] > 0)) },
     };
+    const ms = out["Maç Sonucu"]; out["Çifte Şans"] = { "1X": ms["1"] + ms.X, "12": ms["1"] + ms["2"], X2: ms.X + ms["2"] };
     const lines = (name, f, from, to) => { for (let l = from; l <= to; l++) out[name + " " + l + ",5"] = { Alt: P((i) => f(i) <= l), "Üst": P((i) => f(i) > l) }; };
     lines("Gol", (i) => S.gh[i] + S.ga[i], 0, 8); lines("Ev Gol", (i) => S.gh[i], 0, 6); lines("Dep Gol", (i) => S.ga[i], 0, 6);
     if (sim.hasCorner) {
@@ -180,6 +181,10 @@
     const s = { n: sim.n, S: { gh: sim.S.fh, ga: sim.S.fa, ch: sim.S.ch, ca: sim.S.ca }, hasCorner: sim.hasCorner };
     const out = liveMarkets(s), S = sim.S, n = sim.n, P = (f) => { let k = 0; for (let i = 0; i < n; i++) if (f(i)) k++; return k / n; };
     out["İlk Yarı Sonucu"] = { "1": P((i) => S.hh[i] > S.ha[i]), X: P((i) => S.hh[i] === S.ha[i]), "2": P((i) => S.hh[i] < S.ha[i]) };
+    const r = (h, a) => (h > a ? "1" : h === a ? "X" : "2"), hf = {};
+    for (const a of ["1", "X", "2"]) for (const b of ["1", "X", "2"]) hf[a + "/" + b] = 0;
+    for (let i = 0; i < n; i++) hf[r(S.hh[i], S.ha[i]) + "/" + r(S.fh[i], S.fa[i])] += 1 / n;
+    out["İY/MS"] = hf;
     for (let l = 0; l <= 3; l++) out["İY Gol " + l + ",5"] = { Alt: P((i) => S.hh[i] + S.ha[i] <= l), "Üst": P((i) => S.hh[i] + S.ha[i] > l) };
     return out;
   }
@@ -192,11 +197,12 @@
       const opts = odds[mk], raw = {}; let margin = 0, open = 0;
       for (const k in opts) if (opts[k]) { raw[k] = 1 / opts[k]; margin += raw[k]; open++; }
       const full = open === Object.keys(model[mk]).length && open > 1;
+      const total = mk === "Çifte Şans" ? 2 : 1;   // çifte şansta olasılıklar toplamı 2
       for (const k in opts) {
         const o = opts[k]; if (!o || model[mk][k] == null) continue;
         const p = model[mk][k];
-        rows.push({ market: mk, pick: k, odd: o, model: p, raw: raw[k], fair: full ? raw[k] / margin : null,
-                    margin: full ? margin - 1 : null, ev: p * o - 1 });
+        rows.push({ market: mk, pick: k, odd: o, model: p, raw: raw[k], fair: full ? raw[k] * total / margin : null,
+                    margin: full ? margin / total - 1 : null, ev: p * o - 1 });
       }
     }
     return rows.sort((a, b) => b.ev - a.ev);
