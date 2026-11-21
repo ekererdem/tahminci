@@ -163,11 +163,12 @@
     </div>
     <div class="card">
       <h3>Nasıl çalışır?</h3>
-      <div class="muted" style="font-size:13px">
-        Takım güçleri son 3 sezonun maçlarından hesaplanır, yakın maçlar daha ağırdır (Dixon-Coles modeli). Maç 10.000 kez sanal olarak oynanır ve sonuçlar sayılır.<br><br>
-        Canlı modda maç öncesi tahmin, sahadaki xG ve kornerlerle güncellenir; skor durumu (önde olan geri çekilir, geride olan yüklenir) ve kırmızı kart hesaba katılır.<br><br>
-        Bilyoner oranlarındaki kesinti çıkarılarak "adil" olasılık bulunur. Model ile oran arasında 15 puandan büyük fark "şüpheli" işaretlenir: böyle durumlarda genelde yanılan modeldir.<br><br>
-        Bu bir tahmin aracıdır; kesin sonuç vermez.
+      <div style="font-size:14px;line-height:1.55">
+        <b>1. Takımları tanır.</b> Her takımın son 3 sezonda kaç gol attığına, kaç yediğine, kaç korner kullandığına bakar. Yakın maçlar daha önemlidir.<br><br>
+        <b>2. Maçı oynatır.</b> Seçtiğin maçı bilgisayarda 10.000 kere oynatır ve ne kadar sık ne olduğunu sayar. "%65" demek: 100 maçın 65'inde bu oldu demek.<br><br>
+        <b>3. Bilyoner'e bakar.</b> Bilyoner'in oranlarını okur, kendi payını çıkarır ve "oranı iyi mi, değmez mi" diye söyler.<br><br>
+        <b>4. Canlı maçta</b> sahadaki pozisyonlara ve kornerlere göre tahmini günceller.<br><br>
+        <span class="muted">Tahmindir, garanti değildir. Sakatlık ve kadro haberlerini bilmez.</span>
       </div>
     </div>
   </section>
@@ -293,34 +294,50 @@ function simSummary(s, h, a) {
     const cc = near(c); if (cc) out.push(cc); }
   return out.sort((x, y) => y.p - x.p);
 }
+// Yüzdeyi kelimeye çevir
+function word(p) { return p >= 80 ? "çok büyük ihtimal" : p >= 65 ? "büyük ihtimal" : p >= 50 ? "olabilir" : p >= 35 ? "zor" : "çok zor"; }
+const pr = (p) => Math.round(p);
+const line = (t, p) => `<div class="kv"><span>${t}</span><div class="pbar"><i style="width:${Math.min(p, 100)}%"></i></div><span class="p">%${pr(p)}</span></div>`;
+// Maçın hikayesi: 3-4 düz cümle
+function story(s, h, a) {
+  const out = [], ms = s.ms, favH = ms["1"] >= ms["2"], fav = favH ? h : a, fp = favH ? ms["1"] : ms["2"];
+  if (fp >= 60) out.push(`<b>${fav}</b> açık favori.`);
+  else if (fp >= 45) out.push(`<b>${fav}</b> bir adım önde ama maç kopabilir.`);
+  else out.push(`Dengeli bir maç, kazananı söylemek zor. Beraberlik de güçlü bir seçenek.`);
+  const g = s.avgGoals;
+  out.push(g < 2.2 ? "Az gollü, sıkı bir maç bekleniyor." : g <= 3 ? "Normal bir maç: 2-3 gol bekleniyor." : "Bol gollü bir maç bekleniyor.");
+  const hs = s.homeGoals[0][1], as = s.awayGoals[0][1];
+  if (hs < 60) out.push(`${h} için gol bulmak zor görünüyor.`);
+  if (as < 60) out.push(`${a} için gol bulmak zor görünüyor.`);
+  out.push(`En olası skorlar: <b>${s.scores.slice(0, 3).map((x) => x[0]).join(", ")}</b>.`);
+  if (s.corners) out.push(`Toplam ${Math.round(s.corners.total)} civarı korner bekleniyor.`);
+  return out.join(" ");
+}
+function htftText(k, h, a) {
+  const [x, y] = k.split("/"), iy = { "1": h + " önde", X: "berabere", "2": a + " önde" }[x], ms = { "1": h + " kazanır", X: "berabere biter", "2": a + " kazanır" }[y];
+  return `İlk yarı ${iy}, maç ${ms}`;
+}
 function runSim() {
   if (!R) return;
   const lg = $("league").value, hv = $("home").value, av = $("away").value, h = TEAM(hv), a = TEAM(av);
   if (hv === av) { Android.toast("İki farklı takım seç"); return; }
   const adj = { home: $("adjH").value / 100, away: $("adjA").value / 100 };
-  const t0 = performance.now(), sim = Engine.simulate(R.leagues[lg], hv, av, simN, adj), s = Engine.summarize(sim);
-  const ms = Math.round(performance.now() - t0);
-  let html = `<div class="sec">🎯 Reis, kısaca</div>${simSummary(s, h, a).map(pickCard).join("")}
+  const sim = Engine.simulate(R.leagues[lg], hv, av, simN, adj), s = Engine.summarize(sim);
+  let html = `<div class="card"><h3>Maçın özeti</h3><div style="font-size:15px;line-height:1.55">${story(s, h, a)}</div></div>
+    <div class="sec">🎯 Reis, kısaca</div>${simSummary(s, h, a).map(pickCard).join("")}
     <button class="ghost" style="width:100%;margin-top:4px" onclick="findB()">Oranları iyi mi? Bilyoner'e bak</button>
-    <div class="sec">Detaylar</div>
-    <div class="card"><h3>Maç Sonucu · ${simN.toLocaleString("tr-TR")} maç</h3>
-    ${big3(s.ms, [h, "Beraberlik", a])}
-    <div class="muted" style="margin-top:8px">Beklenen gol: <b>${s.xg[0].toFixed(2)}</b> – <b>${s.xg[1].toFixed(2)}</b> · ort. toplam ${s.avgGoals.toFixed(2)} · ${ms} ms</div></div>`;
-  html += `<div class="card"><h3>En olası skorlar</h3><div class="chips">${s.scores.map(([k, p]) => `<div class="chip">${k} <b>%${f1(p)}</b></div>`).join("")}</div>
-    <div style="height:12px"></div>${heat(s.matrix)}</div>`;
-  html += `<div class="card"><h3>Gol</h3>${s.goals.map(([l, p]) => kv(l + " Üst", p)).join("")}${kv("Karşılıklı gol var", s.btts)}
-    ${kv(h + " " + "1,5 üst", s.homeGoals[1][1])}${kv(a + " 0,5 üst", s.awayGoals[0][1])}
-    <div class="muted" style="margin-top:8px">İlk golü atan: ${h} %${f1(s.firstGoal.home)} · gol yok %${f1(s.firstGoal.none)} · ${a} %${f1(s.firstGoal.away)}</div></div>`;
-  html += `<div class="card"><h3>İlk Yarı</h3>${big3(s.iy, ["İY " + h, "İY Beraberlik", "İY " + a])}<div style="height:8px"></div>
-    ${s.htGoals.map(([l, p]) => kv("İY " + l + " Üst", p)).join("")}
-    <div style="height:10px"></div><h3>İY / MS</h3><div class="chips">${s.htft.map(([k, p]) => `<div class="chip">${k} <b>%${f1(p)}</b></div>`).join("")}</div></div>`;
-  if (s.corners) html += `<div class="card"><h3>Korner</h3>
-    <div class="muted" style="margin-bottom:6px">Ortalama ${s.corners.total.toFixed(1)} (${h} ${s.corners.avg[0].toFixed(1)} · ${a} ${s.corners.avg[1].toFixed(1)})</div>
-    ${s.corners.lines.map(([l, p]) => kv(l + " Üst", p)).join("")}
-    <div class="muted" style="margin-top:8px">Daha çok korner: ${h} %${f1(s.corners.more.ev)} · eşit %${f1(s.corners.more.esit)} · ${a} %${f1(s.corners.more.dep)}</div></div>`;
-  if (s.cards) html += `<div class="card"><h3>Sarı kart</h3>
-    <div class="muted" style="margin-bottom:6px">Ortalama ${s.cards.total.toFixed(1)} (${h} ${s.cards.avg[0].toFixed(1)} · ${a} ${s.cards.avg[1].toFixed(1)})</div>
-    ${s.cards.lines.map(([l, p]) => kv(l + " Üst", p)).join("")}</div>`;
+    <details class="card" style="margin-top:14px"><summary><b>Tüm ihtimaller</b> <span class="muted">(maç ${simN.toLocaleString("tr-TR")} kere oynatıldı)</span></summary>
+    <div class="sec">Maç sonucu</div>${line(h + " kazanır", s.ms["1"])}${line("Berabere biter", s.ms.X)}${line(a + " kazanır", s.ms["2"])}
+    <div class="sec">Skor</div><div class="chips">${s.scores.slice(0, 8).map(([k, p]) => `<div class="chip">${k} <b>%${pr(p)}</b></div>`).join("")}</div>
+    <div class="sec">Gol</div>${line("Maçta gol olur", s.goals[0][1])}${line("Maçta en az 2 gol olur", s.goals[1][1])}${line("Maçta en az 3 gol olur", s.goals[2][1])}${line("Maçta en az 4 gol olur", s.goals[3][1])}
+      ${line("İki takım da gol atar", s.btts)}${line(h + " gol atar", s.homeGoals[0][1])}${line(a + " gol atar", s.awayGoals[0][1])}
+    <div class="sec">İlk yarı</div>${line("İlk yarı " + h + " önde biter", s.iy["1"])}${line("İlk yarı berabere biter", s.iy.X)}${line("İlk yarı " + a + " önde biter", s.iy["2"])}
+      ${line("İlk yarıda gol olur", s.htGoals[0][1])}${line("İlk yarıda en az 2 gol olur", s.htGoals[1][1])}
+      ${s.htft.slice(0, 4).map(([k, p]) => line(htftText(k, h, a), p)).join("")}
+    ${s.corners ? `<div class="sec">Korner</div>${s.corners.lines.slice(0, 5).map(([l, p]) => line(`Maçta en az ${Math.floor(l) + 1} korner olur`, p)).join("")}
+      ${line(h + " daha çok korner kullanır", s.corners.more.ev)}${line(a + " daha çok korner kullanır", s.corners.more.dep)}` : ""}
+    ${s.cards ? `<div class="sec">Sarı kart</div>${s.cards.lines.slice(1, 4).map(([l, p]) => line(`Maçta en az ${Math.floor(l) + 1} sarı kart çıkar`, p)).join("")}` : ""}
+    </details>`;
   $("simOut").innerHTML = html;
   setTimeout(() => $("simOut").scrollIntoView({ behavior: "smooth" }), 50);
 }
@@ -403,9 +420,9 @@ function renderLive(r) {
       ${st.xg ? `<div>${st.xg[0]}</div><div>xG</div><div>${st.xg[1]}</div>` : ""}
       ${st.corners ? `<div>${st.corners[0]}</div><div>Korner</div><div>${st.corners[1]}</div>` : ""}
       <div>${st.reds[0]}</div><div>Kırmızı</div><div>${st.reds[1]}</div></div>`;
-    info = `<div class="muted" style="margin-top:10px">Gol hızı (90 dk): ${sim.pre.goal.map((x) => x.toFixed(2)).join(" – ")} → <b>${sim.now.goal.map((x) => x.toFixed(2)).join(" – ")}</b>` +
-      (sim.now.corner ? `<br>Korner hızı: ${sim.pre.corner.map((x) => x.toFixed(1)).join(" – ")} → <b>${sim.now.corner.map((x) => x.toFixed(1)).join(" – ")}</b>` : "") +
-      `<br>Kalan ~${sim.rem} dk · ${new Date().toLocaleTimeString("tr-TR").slice(0, 5)}</div>`;
+    const gp = sim.pre.goal[0] + sim.pre.goal[1], gn = sim.now.goal[0] + sim.now.goal[1];
+    const mood = gn < gp * 0.8 ? "Maç beklenenden sakin gidiyor, gol ihtimali düştü." : gn > gp * 1.2 ? "Maç hareketli gidiyor, gol ihtimali arttı." : "Maç beklendiği gibi gidiyor.";
+    info = `<div style="margin-top:10px;font-size:14px">${mood} Yaklaşık <b>${sim.rem} dakika</b> kaldı.</div><div class="muted" style="font-size:12px;margin-top:4px">Son okuma ${new Date().toLocaleTimeString("tr-TR").slice(0, 5)}</div>`;
   } else {
     const sim = Engine.simulate(L, st.home, st.away, 30000); model = Engine.preMarkets(sim);
     head = `<div class="score"><div class="t">${st.homeLabel}</div><div style="text-align:center"><span class="tag">MAÇ ÖNCESİ</span></div><div class="t">${st.awayLabel}</div></div>`;
@@ -457,7 +474,7 @@ function pickColor(p) { return p >= 0.7 ? "var(--g)" : p >= 0.6 ? "var(--acc)" :
 function pickCard(c) {
   const pct = Math.round(c.p * 100);
   return `<div class="pick"><div class="pc" style="background:${pickColor(c.p)}">%${pct}</div>
-    <div class="tx"><b>${c.text}, reis.</b><span>%${pct} ihtimalle tutar.${c.v ? "<br>" + VERDICT[c.v](c.odd.toFixed(2)) : ""}</span></div></div>`;
+    <div class="tx"><b>${c.text}, reis.</b><span>%${pct} ihtimalle tutar · ${word(pct)}.${c.v ? "<br>" + VERDICT[c.v](c.odd.toFixed(2)) : ""}</span></div></div>`;
 }
 // Bahisleri düz Türkçeye çevir
 function betText(mk, pick, H, A) {
@@ -534,8 +551,9 @@ function renderKarne() {
   const S = stat(all);
   let h = `<div class="card"><h3>Karne</h3>`;
   if (!S.n) h += `<div class="muted">Henüz sonuçlanan öneri yok reis. Bilyoner'den maç öncesi oranlara baktığın her maçın önerileri buraya kaydedilir. Maç sonuçları genelde 1-3 gün içinde veriye düşer, o zaman burada tuttu/tutmadı görünür.</div>`;
-  else h += `<div class="big3"><div><b>${S.hit}/${S.n}</b><span>tutan öneri</span></div><div><b>%${Math.round(100 * S.hit / S.n)}</b><span>tutma oranı</span></div><div><b>%${Math.round(100 * S.exp / S.n)}</b><span>tahmin edilen</span></div></div>
-    <div class="muted" style="margin:10px 0 6px">"Tahmin edilen" yakın çıkıyorsa yüzdeler doğru demektir. Her öneriye 100 TL basılsaydı:</div>
+  else h += `<div class="big3"><div><b>${S.hit}/${S.n}</b><span>tutan öneri</span></div><div><b>%${Math.round(100 * S.hit / S.n)}</b><span>tutma oranı</span></div><div><b>%${Math.round(100 * S.exp / S.n)}</b><span>uygulama demişti</span></div></div>
+    <div style="margin:10px 0 6px;font-size:14px">${Math.abs(S.hit / S.n - S.exp / S.n) <= 0.07 ? "👍 Uygulamanın verdiği yüzdeler gerçeğe yakın çıkıyor." : S.hit / S.n > S.exp / S.n ? "Öneriler, uygulamanın söylediğinden daha sık tuttu." : "Öneriler, uygulamanın söylediğinden daha az tuttu. Yüzdelere biraz temkinli bak."}${S.n < 30 ? " (Henüz az maç var, kesin konuşmak için en az 30 öneri lazım.)" : ""}</div>
+    <div class="muted" style="margin:6px 0">Her öneriye 100 TL basılsaydı:</div>
     ${row("✅ Oranı iyi denenler", all.filter((p) => p.v === "good"))}${row("➖ Oranı normal denenler", all.filter((p) => p.v === "ok"))}${row("❌ Değmez denenler", all.filter((p) => p.v === "bad"))}${row("Hepsi", all)}`;
   h += `</div>`;
   const mcard = (m) => `<div class="card"><div class="row"><b>${m.hl} – ${m.al}</b><span class="muted" style="flex:0 0 auto">${m.result ? `<b style="color:var(--acc)">${m.result.fh}-${m.result.fa}</b>` : "bekliyor"} · ${m.date.slice(5).split("-").reverse().join(".")}</span></div>
