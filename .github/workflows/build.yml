@@ -1,0 +1,81 @@
+name: APK derle ve veriyi güncelle
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * *"      # her gün 07:17 (TR): takım güçlerini yeniden hesapla
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  veri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy pandas scipy
+      - name: Son sezonları indir, takım güçlerini hesapla
+        run: |
+          mkdir -p out
+          python3 model/build_ratings.py --download out/ratings.json
+          ls -la out
+      - name: ratings.json'u "veri" sürümüne yükle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view veri >/dev/null 2>&1; then
+            gh release create veri --title "Veri" --notes "Uygulamanın indirdiği takım güçleri (her gün yenilenir)" --latest=false
+          fi
+          gh release upload veri out/ratings.json --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ratings
+          path: out/ratings.json
+
+  apk:
+    needs: veri
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ratings
+          path: app/src/main/assets
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Derle
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleDebug --no-daemon 2>&1 | tee build.log
+      - name: Derleme hatalarını özetle
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^e: |error:|What went wrong" -A 2 build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+      - name: APK'yı "latest" sürümüne yükle (uygulama içi güncelleme buradan okur)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Tahminci.apk
+          VN=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          VC=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          NOTES="Sürüm $VN ($VC) · Son derleme: $GITHUB_SHA"
+          git tag -f latest "$GITHUB_SHA"
+          git push -f origin refs/tags/latest
+          if ! gh release view latest >/dev/null 2>&1; then
+            gh release create latest --title "Tahminci" --notes "$NOTES" --verify-tag
+          fi
+          gh release upload latest Tahminci.apk --clobber
+          gh release edit latest --draft=false --latest --title "Tahminci" --notes "$NOTES"

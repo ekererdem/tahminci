@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tahminci</title>
+<style>
+  :root{
+    --bg:#0B1118; --card:#131C26; --card2:#18232F; --line:#22303E; --tx:#E8EEF4; --mut:#8A9AAB;
+    --acc:#F5B83D; --acc2:#FFD27A; --g:#3DDC84; --r:#FF6B6B; --b:#5AA9FF;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#0B1118 70%,#0B111800);padding:14px 16px 10px;display:flex;align-items:center;gap:10px}
+  header .logo{width:30px;height:30px;border-radius:9px;background:var(--acc);display:grid;place-items:center;color:#1a1200;font-weight:900}
+  header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:.2px}
+  header .sub{margin-left:auto;font-size:11px;color:var(--mut);text-align:right}
+  main{padding:0 14px 90px}
+  .tab{display:none}.tab.on{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0}
+  .card h3{margin:0 0 10px;font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:700}
+  label{font-size:12px;color:var(--mut);display:block;margin:8px 0 4px}
+  select,input[type=text],input[type=url]{width:100%;background:var(--card2);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:15px;outline:none}
+  select:focus,input:focus{border-color:var(--acc)}
+  .row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+  .vs{flex:0 0 auto;color:var(--mut);font-weight:700;padding-top:22px}
+  button{font:inherit;border:0;border-radius:12px;padding:13px 14px;font-weight:700;cursor:pointer}
+  .btn{background:var(--acc);color:#1a1200;width:100%;font-size:16px}
+  .btn:active{transform:scale(.99);filter:brightness(.95)}
+  .ghost{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
+  .small{padding:8px 10px;font-size:13px;border-radius:10px}
+  .seg{display:flex;background:var(--card2);border-radius:12px;padding:3px;gap:3px}
+  .seg button{flex:1;background:none;color:var(--mut);padding:9px 4px;font-size:13px}
+  .seg button.on{background:var(--acc);color:#1a1200}
+  .big3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center}
+  .big3 div{background:var(--card2);border-radius:12px;padding:10px 4px}
+  .big3 b{display:block;font-size:22px}.big3 span{font-size:11px;color:var(--mut)}
+  .best b{color:var(--acc)}
+  .bar{display:flex;height:8px;border-radius:5px;overflow:hidden;margin:10px 0 2px;background:var(--card2)}
+  .bar i{display:block}
+  .kv{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:0}
+  .kv .p{font-weight:700;font-variant-numeric:tabular-nums}
+  .pbar{flex:1;margin:0 10px;height:6px;background:var(--card2);border-radius:4px;overflow:hidden}
+  .pbar i{display:block;height:100%;background:var(--acc)}
+  .grid{display:grid;grid-template-columns:28px repeat(6,1fr);gap:3px;font-size:11px;text-align:center}
+  .grid div{padding:7px 0;border-radius:6px}
+  .grid .h{color:var(--mut);background:none}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--card2);border:1px solid var(--line);border-radius:20px;padding:6px 10px;font-size:13px}
+  .chip b{color:var(--acc2)}
+  .muted{color:var(--mut);font-size:12px}
+  .tag{font-size:10px;padding:2px 6px;border-radius:6px;background:#3a2a10;color:var(--acc2);margin-left:6px;font-weight:700}
+  .warn{background:#3a1717;color:#ffb3b3}
+  .good{color:var(--g)}.bad{color:var(--r)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--mut);font-weight:600;text-align:right;padding:6px 4px;font-size:11px}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:8px 4px;border-top:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+  .score{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .score .t{flex:1;font-weight:800;font-size:15px}.score .t:last-child{text-align:right}
+  .score .s{font-size:30px;font-weight:900;color:var(--acc)}
+  .min{display:inline-block;background:var(--r);color:#fff;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:800}
+  .stats{display:grid;grid-template-columns:1fr auto 1fr;gap:4px 10px;font-size:13px;margin-top:10px}
+  .stats div:nth-child(3n+1){text-align:right;font-weight:700}.stats div:nth-child(3n+2){color:var(--mut);text-align:center}
+  .stats div:nth-child(3n){font-weight:700}
+  nav{position:fixed;bottom:0;left:0;right:0;background:#0E161FEE;backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+  nav button{flex:1;background:none;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;padding:6px}
+  nav button svg{width:24px;height:24px}
+  nav button.on{color:var(--acc)}
+  .toggle{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+  .sw{position:relative;width:46px;height:26px;background:var(--line);border-radius:13px;transition:.2s}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s}
+  .sw.on{background:var(--acc)}.sw.on::after{left:23px}
+  input[type=range]{width:100%;accent-color:var(--acc)}
+  .update{background:linear-gradient(90deg,#2a2210,#1b1608);border:1px solid #5b4511}
+  .hide{display:none!important}
+  .form span{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:4px;font-size:10px;font-weight:800;margin-left:2px}
+  .fG{background:#1f5a37;color:#9ff0c0}.fB{background:#4a4a2a;color:#eee3a0}.fM{background:#5a1f1f;color:#ffb0b0}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">T</div><h1>Tahminci</h1>
+  <div class="sub" id="dataInfo">veri yükleniyor…</div>
+</header>
+<main>
+  <div id="updBox" class="card update hide">
+    <div class="row"><div><b>Yeni sürüm var</b><div class="muted" id="updTxt"></div></div>
+    <button class="btn small" style="flex:0 0 auto;width:auto" onclick="installUpdate()" id="updBtn">Güncelle</button></div>
+  </div>
+
+  <!-- ================= SİMÜLASYON ================= -->
+  <section class="tab on" id="t-sim">
+    <div class="card">
+      <label>Lig</label><select id="league"></select>
+      <div class="row">
+        <div><label>Ev sahibi</label><select id="home"></select></div>
+        <div class="vs">vs</div>
+        <div><label>Deplasman</label><select id="away"></select></div>
+      </div>
+      <div class="row muted" style="margin-top:6px"><div id="formH"></div><div id="formA" style="text-align:right"></div></div>
+      <details style="margin-top:10px"><summary class="muted">Elle ayar (sakatlık, motivasyon…)</summary>
+        <label>Ev sahibi hücum gücü: <b id="adjHv">%100</b></label><input type="range" id="adjH" min="70" max="130" value="100">
+        <label>Deplasman hücum gücü: <b id="adjAv">%100</b></label><input type="range" id="adjA" min="70" max="130" value="100">
+        <label>Simülasyon sayısı</label>
+        <div class="seg" id="nSeg"><button data-n="1000">1.000</button><button data-n="10000" class="on">10.000</button><button data-n="50000">50.000</button></div>
+      </details>
+      <div style="height:12px"></div>
+      <button class="btn" onclick="runSim()">⚽ Maçı oynat</button>
+    </div>
+    <div id="simOut"></div>
+  </section>
+
+  <!-- ================= CANLI / BİLYONER ================= -->
+  <section class="tab" id="t-live">
+    <div class="card">
+      <label>Bilyoner maç linki</label>
+      <div class="row"><input type="url" id="bUrl" placeholder="https://www.bilyoner.com/mac-karti/futbol/…"><button class="ghost small" style="flex:0 0 auto" onclick="pasteUrl()">Yapıştır</button></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" onclick="openB()">Aç ve oku</button>
+        <button class="ghost" style="flex:0 0 auto" onclick="Android.bilyonerShow(true)">Sayfayı gör</button>
+      </div>
+      <div class="toggle" style="margin-top:8px"><span class="muted">Otomatik güncelle (30 sn)</span><div class="sw" id="autoSw" onclick="toggleAuto()"></div></div>
+    </div>
+    <div id="liveOut"><div class="muted" style="text-align:center;padding:20px">Maç öncesi ya da canlı bir maçın Bilyoner linkini yapıştır. Oranlar okunur ve modelle karşılaştırılır.</div></div>
+  </section>
+
+  <!-- ================= AYARLAR ================= -->
+  <section class="tab" id="t-set">
+    <div class="card">
+      <h3>Veri</h3>
+      <div class="kv"><span>Son hesaplama</span><span id="sGen">-</span></div>
+      <div class="kv"><span>Ligler</span><span id="sLg">-</span></div>
+      <div style="height:10px"></div>
+      <button class="ghost" style="width:100%" onclick="loadRemote(true)">Veriyi şimdi yenile</button>
+    </div>
+    <div class="card">
+      <h3>Uygulama</h3>
+      <div class="kv"><span>Sürüm</span><span id="sVer">-</span></div>
+      <div style="height:10px"></div>
+      <button class="ghost" style="width:100%" onclick="checkUpdate(true)">Güncelleme kontrol et</button>
+    </div>
+    <div class="card">
+      <h3>Nasıl çalışır?</h3>
+      <div class="muted" style="font-size:13px">
+        Takım güçleri son 3 sezonun maçlarından hesaplanır, yakın maçlar daha ağırdır (Dixon-Coles modeli). Maç 10.000 kez sanal olarak oynanır ve sonuçlar sayılır.<br><br>
+        Canlı modda maç öncesi tahmin, sahadaki xG ve kornerlerle güncellenir; skor durumu (önde olan geri çekilir, geride olan yüklenir) ve kırmızı kart hesaba katılır.<br><br>
+        Bilyoner oranlarındaki kesinti çıkarılarak "adil" olasılık bulunur. Model ile oran arasında 15 puandan büyük fark "şüpheli" işaretlenir: böyle durumlarda genelde yanılan modeldir.<br><br>
+        Bu bir tahmin aracıdır; kesin sonuç vermez.
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-t="sim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7l4 3-1.5 4.5h-5L8 10z"/></svg>Simülasyon</button>
+  <button data-t="live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Canlı</button>
+  <button data-t="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Ayarlar</button>
+</nav>
+
+<script src="engine.js"></script>
+<script src="bilyoner.js"></script>
+<script>
+"use strict";
+const DATA_URL = "https://github.com/ekererdem/tahminci/releases/download/veri/ratings.json";
+const $ = (id) => document.getElementById(id);
+const f1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
+let R = null, simN = 10000, autoTimer = null, lastB = null;
+
+// ---------- Android köprüsü (tarayıcıda denemek için yedekli) ----------
+if (!window.Android) window.Android = {
+  fetch: (u, id) => fetch(u).then((r) => r.text()).then((t) => __cb(id, t)).catch(() => __cb(id, null)),
+  readAsset: () => null, bilyonerLoad: () => {}, bilyonerShow: () => {}, bilyonerRead: (id) => __cb(id, null),
+  appVersion: () => "tarayıcı", checkUpdate: (id) => __cb(id, null), installUpdate: () => {}, toast: (m) => console.log(m),
+  clipboard: () => "", copy: () => {},
+};
+const CBS = {}; let cbn = 0;
+window.__cb = (id, data) => { const f = CBS[id]; delete CBS[id]; if (f) f(data); };
+const call = (fn, ...a) => new Promise((res) => { const id = ++cbn; CBS[id] = res; Android[fn](...a, id); });
+
+// ---------- Veri ----------
+function setData(j, src) {
+  R = j;
+  const names = Object.keys(R.leagues).map((c) => R.leagues[c].name.split(" ")[0]).join(", ");
+  $("dataInfo").innerHTML = "veri: " + R.generated.slice(0, 10);
+  $("sGen").textContent = R.generated; $("sLg").textContent = names;
+  fillLeagues();
+}
+function loadLocal() {
+  let s = null; try { s = localStorage.getItem("ratings"); } catch (e) {}
+  if (!s) s = Android.readAsset("ratings.json");
+  if (s) try { setData(JSON.parse(s), "yerel"); } catch (e) {}
+}
+async function loadRemote(manual) {
+  const t = await call("fetch", DATA_URL);
+  if (!t) { if (manual) Android.toast("Veri indirilemedi (internet?)"); return; }
+  try {
+    const j = JSON.parse(t);
+    if (!R || j.generated !== R.generated || manual) {
+      try { localStorage.setItem("ratings", t); } catch (e) {}
+      const keep = [$("league").value, $("home").value, $("away").value];
+      setData(j, "uzak"); if (R.leagues[keep[0]]) { $("league").value = keep[0]; fillTeams(); $("home").value = keep[1]; $("away").value = keep[2]; showForm(); }
+      if (manual) Android.toast("Veri güncellendi: " + j.generated);
+    }
+  } catch (e) { if (manual) Android.toast("Veri okunamadı"); }
+}
+const TEAM = (t) => t;
+function fillLeagues() {
+  const cur = $("league").value;
+  $("league").innerHTML = Object.keys(R.leagues).map((c) => `<option value="${c}">${R.leagues[c].name}</option>`).join("");
+  if (R.leagues[cur]) $("league").value = cur;
+  fillTeams();
+}
+function fillTeams() {
+  const L = R.leagues[$("league").value]; const o = L.teams.map((t) => `<option>${t}</option>`).join("");
+  $("home").innerHTML = o; $("away").innerHTML = o; $("away").selectedIndex = 1; showForm();
+}
+function formHtml(t) {
+  const L = R.leagues[$("league").value], f = (L.form && L.form[t]) || "";
+  return f ? "Form " + [...f].map((c) => `<span class="f${c}">${c}</span>`).join("") : "";
+}
+function showForm() { $("formH").innerHTML = formHtml($("home").value); $("formA").innerHTML = formHtml($("away").value); }
+$("league").onchange = fillTeams; $("home").onchange = showForm; $("away").onchange = showForm;
+$("adjH").oninput = () => ($("adjHv").textContent = "%" + $("adjH").value);
+$("adjA").oninput = () => ($("adjAv").textContent = "%" + $("adjA").value);
+document.querySelectorAll("#nSeg button").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("#nSeg button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); simN = +b.dataset.n; }));
+
+// ---------- Simülasyon ekranı ----------
+function big3(o, labels) {
+  const v = ["1", "X", "2"].map((k) => o[k]), mx = Math.max(...v);
+  return `<div class="big3">${v.map((x, i) => `<div class="${x === mx ? "best" : ""}"><b>%${f1(x)}</b><span>${labels[i]}</span></div>`).join("")}</div>
+    <div class="bar"><i style="width:${v[0]}%;background:var(--g)"></i><i style="width:${v[1]}%;background:#6b7c8e"></i><i style="width:${v[2]}%;background:var(--b)"></i></div>`;
+}
+const kv = (k, p, extra) => `<div class="kv"><span>${k}</span><div class="pbar"><i style="width:${Math.min(p, 100)}%"></i></div><span class="p">%${f1(p)}</span>${extra || ""}</div>`;
+function heat(M) {
+  let mx = 0; for (let x = 0; x < 6; x++) for (let y = 0; y < 6; y++) mx = Math.max(mx, M[x][y]);
+  let h = `<div class="grid"><div class="h"></div>${[0,1,2,3,4,5].map((y) => `<div class="h">${y}</div>`).join("")}`;
+  for (let x = 0; x < 6; x++) {
+    h += `<div class="h">${x}</div>`;
+    for (let y = 0; y < 6; y++) { const v = M[x][y], a = v / mx;
+      h += `<div style="background:rgba(245,184,61,${0.08 + a * 0.85});color:${a > 0.55 ? "#1a1200" : "var(--tx)"}">${v >= 0.0095 ? Math.round(v * 100) : ""}</div>`; }
+  }
+  return h + `</div><div class="muted" style="margin-top:6px">Satır: ${$("home").value} golü · Sütun: ${$("away").value} golü · Değerler %</div>`;
+}
+function runSim() {
+  if (!R) return;
+  const lg = $("league").value, h = $("home").value, a = $("away").value;
+  if (h === a) { Android.toast("İki farklı takım seç"); return; }
+  const adj = { home: $("adjH").value / 100, away: $("adjA").value / 100 };
+  const t0 = performance.now(), sim = Engine.simulate(R.leagues[lg], h, a, simN, adj), s = Engine.summarize(sim);
+  const ms = Math.round(performance.now() - t0);
+  let html = `<div class="card"><h3>Maç Sonucu · ${simN.toLocaleString("tr-TR")} maç</h3>
+    ${big3(s.ms, [h, "Beraberlik", a])}
+    <div class="muted" style="margin-top:8px">Beklenen gol: <b>${s.xg[0].toFixed(2)}</b> – <b>${s.xg[1].toFixed(2)}</b> · ort. toplam ${s.avgGoals.toFixed(2)} · ${ms} ms</div></div>`;
+  html += `<div class="card"><h3>En olası skorlar</h3><div class="chips">${s.scores.map(([k, p]) => `<div class="chip">${k} <b>%${f1(p)}</b></div>`).join("")}</div>
+    <div style="height:12px"></div>${heat(s.matrix)}</div>`;
+  html += `<div class="card"><h3>Gol</h3>${s.goals.map(([l, p]) => kv(l + " Üst", p)).join("")}${kv("Karşılıklı gol var", s.btts)}
+    ${kv(h + " " + "1,5 üst", s.homeGoals[1][1])}${kv(a + " 0,5 üst", s.awayGoals[0][1])}
+    <div class="muted" style="margin-top:8px">İlk golü atan: ${h} %${f1(s.firstGoal.home)} · gol yok %${f1(s.firstGoal.none)} · ${a} %${f1(s.firstGoal.away)}</div></div>`;
+  html += `<div class="card"><h3>İlk Yarı</h3>${big3(s.iy, ["İY " + h, "İY Beraberlik", "İY " + a])}<div style="height:8px"></div>
+    ${s.htGoals.map(([l, p]) => kv("İY " + l + " Üst", p)).join("")}
+    <div style="height:10px"></div><h3>İY / MS</h3><div class="chips">${s.htft.map(([k, p]) => `<div class="chip">${k} <b>%${f1(p)}</b></div>`).join("")}</div></div>`;
+  if (s.corners) html += `<div class="card"><h3>Korner</h3>
+    <div class="muted" style="margin-bottom:6px">Ortalama ${s.corners.total.toFixed(1)} (${h} ${s.corners.avg[0].toFixed(1)} · ${a} ${s.corners.avg[1].toFixed(1)})</div>
+    ${s.corners.lines.map(([l, p]) => kv(l + " Üst", p)).join("")}
+    <div class="muted" style="margin-top:8px">Daha çok korner: ${h} %${f1(s.corners.more.ev)} · eşit %${f1(s.corners.more.esit)} · ${a} %${f1(s.corners.more.dep)}</div></div>`;
+  if (s.cards) html += `<div class="card"><h3>Sarı kart</h3>
+    <div class="muted" style="margin-bottom:6px">Ortalama ${s.cards.total.toFixed(1)} (${h} ${s.cards.avg[0].toFixed(1)} · ${a} ${s.cards.avg[1].toFixed(1)})</div>
+    ${s.cards.lines.map(([l, p]) => kv(l + " Üst", p)).join("")}</div>`;
+  $("simOut").innerHTML = html;
+  setTimeout(() => $("simOut").scrollIntoView({ behavior: "smooth" }), 50);
+}
+
+// ---------- Canlı / Bilyoner ----------
+async function pasteUrl() { const t = Android.clipboard(); if (t) { $("bUrl").value = t.trim(); } }
+function openB() {
+  let u = $("bUrl").value.trim(); if (!u) { pasteUrl(); u = $("bUrl").value.trim(); }
+  if (!/bilyoner\.com/.test(u)) { Android.toast("Bilyoner maç linki yapıştır"); return; }
+  try { localStorage.setItem("bUrl", u); } catch (e) {}
+  lastB = null; Android.bilyonerLoad(u);
+  $("liveOut").innerHTML = `<div class="card muted" style="text-align:center">Sayfa açılıyor…</div>`;
+  let tries = 0;
+  const tryRead = async () => { tries++; const ok = await readB(true); if (!ok && tries < 8) setTimeout(tryRead, 2000); else if (!ok) failB(); };
+  setTimeout(tryRead, 3500);
+}
+function failB() {
+  $("liveOut").innerHTML = `<div class="card"><b>Sayfa okunamadı.</b><div class="muted">Sayfa yüklenmemiş olabilir ya da takımlar tanınmadı. "Sayfayı gör" ile kontrol et, sonra tekrar "Aç ve oku"ya bas.</div>
+    <div style="height:10px"></div><button class="ghost small" onclick="copyDebug()">Sayfa metnini kopyala (bana gönder)</button></div>`;
+}
+let lastText = "";
+function copyDebug() { Android.copy(lastText.slice(0, 20000)); Android.toast("Kopyalandı"); }
+async function readB(silent) {
+  const txt = await call("bilyonerRead"); if (!txt) return false;
+  lastText = txt; const r = Bilyoner.parse(txt, R);
+  if (!r.state.ok || !Object.keys(r.odds).length) return false;
+  renderLive(r); return true;
+}
+function toggleAuto() {
+  const on = !autoTimer; $("autoSw").classList.toggle("on", on);
+  if (on) autoTimer = setInterval(() => readB(true), 30000); else { clearInterval(autoTimer); autoTimer = null; }
+}
+function renderLive(r) {
+  const st = r.state, L = R.leagues[st.league];
+  let model, head, info = "";
+  if (st.live) {
+    const sim = Engine.live(L, st.home, st.away, st);
+    model = Engine.liveMarkets(sim);
+    head = `<div class="score"><div class="t">${st.homeLabel}</div><div style="text-align:center"><div class="s">${st.goals[0]} - ${st.goals[1]}</div><span class="min">${st.halftime ? "İY" : st.minute + "'"}</span></div><div class="t">${st.awayLabel}</div></div>`;
+    if (st.xg || st.corners) head += `<div class="stats">
+      ${st.xg ? `<div>${st.xg[0]}</div><div>xG</div><div>${st.xg[1]}</div>` : ""}
+      ${st.corners ? `<div>${st.corners[0]}</div><div>Korner</div><div>${st.corners[1]}</div>` : ""}
+      <div>${st.reds[0]}</div><div>Kırmızı</div><div>${st.reds[1]}</div></div>`;
+    info = `<div class="muted" style="margin-top:10px">Gol hızı (90 dk): ${sim.pre.goal.map((x) => x.toFixed(2)).join(" – ")} → <b>${sim.now.goal.map((x) => x.toFixed(2)).join(" – ")}</b>` +
+      (sim.now.corner ? `<br>Korner hızı: ${sim.pre.corner.map((x) => x.toFixed(1)).join(" – ")} → <b>${sim.now.corner.map((x) => x.toFixed(1)).join(" – ")}</b>` : "") +
+      `<br>Kalan ~${sim.rem} dk · ${new Date().toLocaleTimeString("tr-TR").slice(0, 5)}</div>`;
+  } else {
+    const sim = Engine.simulate(L, st.home, st.away, 30000); model = Engine.preMarkets(sim);
+    head = `<div class="score"><div class="t">${st.homeLabel}</div><div style="text-align:center"><span class="tag">MAÇ ÖNCESİ</span></div><div class="t">${st.awayLabel}</div></div>`;
+  }
+  const rows = Engine.compare(model, r.odds);
+  const tr = rows.map((x) => {
+    const diff = x.fair != null ? x.model - x.fair : null, sus = diff != null && Math.abs(diff) > 0.15;
+    return `<tr><td>${x.market} <b>${x.pick}</b>${sus ? '<span class="tag warn">şüpheli</span>' : ""}</td><td>${x.odd.toFixed(2)}</td>
+      <td>${x.fair != null ? "%" + f1(x.fair * 100) : '<span class="muted">?</span>'}</td><td><b>%${f1(x.model * 100)}</b></td>
+      <td class="${x.ev > 0.03 ? "good" : x.ev < -0.03 ? "bad" : ""}">${x.ev > 0 ? "+" : ""}${Math.round(x.ev * 100)}%</td></tr>`;
+  }).join("");
+  const marg = rows.find((x) => x.margin != null);
+  $("liveOut").innerHTML = `<div class="card">${head}${st.leagueMismatch ? '<div class="tag warn">Takımlar farklı liglerden eşleşti, kontrol et</div>' : ""}${info}</div>
+    <div class="card"><h3>Oran karşılaştırma</h3>
+    <div class="muted" style="margin-bottom:6px">Adil = Bilyoner oranından kesinti çıkarılmış olasılık${marg ? ` (kesinti ~%${Math.round(marg.margin * 100)})` : ""}. Getiri = model × oran − 1. "?" = karşı seçenek kapalı.</div>
+    <table><tr><th>Bahis</th><th>Oran</th><th>Adil</th><th>Model</th><th>Getiri</th></tr>${tr}</table></div>
+    <div class="muted" style="text-align:center;margin:6px 0 14px">Bu bir tahmin aracıdır. Pozitif getiri kazanç garantisi değildir.</div>`;
+}
+
+// ---------- Güncelleme ----------
+async function checkUpdate(manual) {
+  const r = await call("checkUpdate");
+  if (r && r !== "none") { $("updBox").classList.remove("hide"); $("updTxt").textContent = "Sürüm " + r; }
+  else if (manual) Android.toast(r === "none" ? "Uygulama güncel" : "Kontrol edilemedi");
+}
+function installUpdate() { $("updBtn").textContent = "İndiriliyor…"; Android.installUpdate(); }
+window.onUpdateProgress = (p) => { $("updBtn").textContent = p >= 0 ? "%" + p : p === -2 ? "Hata" : "İndiriliyor…"; };
+
+// ---------- Sekmeler ----------
+document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.remove("on")); b.classList.add("on");
+  document.querySelectorAll(".tab").forEach((x) => x.classList.remove("on")); $("t-" + b.dataset.t).classList.add("on");
+  window.scrollTo(0, 0);
+}));
+window.onSharedUrl = (u) => { $("bUrl").value = u; document.querySelector('nav button[data-t="live"]').click(); openB(); };
+
+// ---------- Başlangıç ----------
+$("sVer").textContent = Android.appVersion();
+try { const u = localStorage.getItem("bUrl"); if (u) $("bUrl").value = u; } catch (e) {}
+loadLocal(); loadRemote(false); checkUpdate(false);
+</script>
+</body>
+</html>
