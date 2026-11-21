@@ -296,6 +296,7 @@ function runSim() {
   const t0 = performance.now(), sim = Engine.simulate(R.leagues[lg], hv, av, simN, adj), s = Engine.summarize(sim);
   const ms = Math.round(performance.now() - t0);
   let html = `<div class="sec">🎯 Reis, kısaca</div>${simSummary(s, h, a).map(pickCard).join("")}
+    <button class="ghost" style="width:100%;margin-top:4px" onclick="findB()">Oranları iyi mi? Bilyoner'e bak</button>
     <div class="sec">Detaylar</div>
     <div class="card"><h3>Maç Sonucu · ${simN.toLocaleString("tr-TR")} maç</h3>
     ${big3(s.ms, [h, "Beraberlik", a])}
@@ -423,22 +424,34 @@ function family(mk) {
   return null;
 }
 function simplePicks(rows, H, A) {
-  const best = {};
+  const cand = [];
   for (const x of rows) {
     const f = family(x.market); if (!f || x.fair == null) continue;
     if (Math.abs(x.model - x.fair) > 0.15) continue;            // görüş ayrılığı: önermiyoruz
-    const p = (x.model + x.fair) / 2;
-    if (p < 0.5 || x.odd < 1.25) continue;                       // zayıf ya da oranı çok düşük
-    const score = p * x.odd - 1 + 0.3 * p;
-    if (!best[f] || score > best[f].score) best[f] = { ...x, p, score, text: betText(x.market, x.pick, H, A) };
+    const p = (x.model + x.fair) / 2;                            // arka planda: model + Bilyoner ortalaması
+    if (p < 0.5 || p > 0.92) continue;
+    const ev = p * x.odd - 1;
+    const v = ev >= 0.03 ? "good" : ev > -0.07 ? "ok" : "bad";
+    cand.push({ ...x, f, p, ev, v, text: betText(x.market, x.pick, H, A) });
   }
-  return Object.values(best).sort((a, b) => b.p - a.p).slice(0, 5);
+  // her konudan en fazla 2: en değerlisi ve en yüksek ihtimallisi
+  const out = [], per = {};
+  const take = (c) => { if (out.includes(c)) return; per[c.f] = (per[c.f] || 0) + 1; out.push(c); };
+  for (const c of [...cand].sort((a, b) => b.ev - a.ev)) if (!per[c.f]) take(c);
+  for (const c of [...cand].sort((a, b) => b.p - a.p)) if ((per[c.f] || 0) < 2) take(c);
+  const rank = { good: 0, ok: 1, bad: 2 };
+  return out.sort((a, b) => rank[a.v] - rank[b.v] || b.p - a.p).slice(0, 8);
 }
+const VERDICT = {
+  good: (o) => `<span class="good">✅ Oranı da iyi (${o}), oynanabilir.</span>`,
+  ok: (o) => `<span style="color:var(--acc2)">➖ Oranı (${o}) normal, ne kazandırır ne kaybettirir.</span>`,
+  bad: (o) => `<span class="bad">❌ Oranı (${o}) bu ihtimale göre az, değmez.</span>`,
+};
 function pickColor(p) { return p >= 0.7 ? "var(--g)" : p >= 0.6 ? "var(--acc)" : "#E8A15A"; }
 function pickCard(c) {
   const pct = Math.round(c.p * 100);
   return `<div class="pick"><div class="pc" style="background:${pickColor(c.p)}">%${pct}</div>
-    <div class="tx"><b>${c.text}, reis.</b><span>Bu kuponu yaparsan %${pct} tutar${c.odd ? " · Bilyoner oranı " + c.odd.toFixed(2) : ""}</span></div></div>`;
+    <div class="tx"><b>${c.text}, reis.</b><span>%${pct} ihtimalle tutar.${c.v ? "<br>" + VERDICT[c.v](c.odd.toFixed(2)) : ""}</span></div></div>`;
 }
 // Bahisleri düz Türkçeye çevir
 function betText(mk, pick, H, A) {
