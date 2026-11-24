@@ -124,7 +124,7 @@
       <div style="height:12px"></div>
       <button class="btn" onclick="runSim()">⚽ Maçı oynat</button>
       <div style="height:8px"></div>
-      <button class="ghost" style="width:100%" onclick="findB()">📺 Maçı canlı takip et</button>
+      <button class="ghost" style="width:100%" onclick="findB()">📺 Eksikleri getir ve canlı takip et</button>
     </div>
     <div id="simOut"></div>
   </section>
@@ -167,7 +167,8 @@
         <b>1. Takımları tanır.</b> Her takımın son 3 sezonda kaç gol attığına, kaç yediğine, kaç korner kullandığına bakar. Yakın maçlar daha önemlidir.<br><br>
         <b>2. Maçı oynatır.</b> Seçtiğin maçı bilgisayarda 10.000 kere oynatır ve ne kadar sık ne olduğunu sayar. "%65" demek: 100 maçın 65'inde bu oldu demek.<br><br>
         <b>3. Canlı maçta</b> Bilyoner'den sadece skoru, dakikayı, pozisyonları (xG) ve kornerleri okur, tahmini buna göre günceller. Bahis oranlarına hiç bakmaz.<br><br>
-        <b>4. Karne tutar.</b> Verdiği tahminlerin kaçının tuttuğunu kaydeder.<br><br>
+        <b>4. Eksiklere bakar.</b> Bilyoner'in kadro sayfasından sakat ve cezalıları okur. Oyuncu ne kadar önemliyse (golcüyse, hep ilk 11 oynuyorsa) tahmine etkisi o kadar büyük olur.<br><br>
+        <b>5. Karne tutar.</b> Verdiği tahminlerin kaçının tuttuğunu kaydeder.<br><br>
         <span class="muted">Tahmindir, garanti değildir. Sakatlık ve kadro haberlerini bilmez.</span>
       </div>
     </div>
@@ -325,7 +326,7 @@ function runSim() {
   const sim = Engine.simulate(R.leagues[lg], hv, av, simN, adj), s = Engine.summarize(sim);
   let html = `<div class="card"><h3>Maçın özeti</h3><div style="font-size:15px;line-height:1.55">${story(s, h, a)}</div></div>
     <div class="sec">🎯 Reis, kısaca</div>${simSummary(s, h, a).map(pickCard).join("")}
-    <button class="ghost" style="width:100%;margin-top:4px" onclick="findB()">📺 Maçı canlı takip et</button>
+    <button class="ghost" style="width:100%;margin-top:4px" onclick="findB()">📺 Eksikleri getir ve canlı takip et</button>
     <details class="card" style="margin-top:14px"><summary><b>Tüm ihtimaller</b> <span class="muted">(maç ${simN.toLocaleString("tr-TR")} kere oynatıldı)</span></summary>
     <div class="sec">Maç sonucu</div>${line(h + " kazanır", s.ms["1"])}${line("Berabere biter", s.ms.X)}${line(a + " kazanır", s.ms["2"])}
     <div class="sec">Skor</div><div class="chips">${s.scores.slice(0, 8).map(([k, p]) => `<div class="chip">${k} <b>%${pr(p)}</b></div>`).join("")}</div>
@@ -349,6 +350,7 @@ function openB() {
   let u = $("bUrl").value.trim(); if (!u) { pasteUrl(); u = $("bUrl").value.trim(); }
   if (!/bilyoner\.com/.test(u)) { Android.toast("Bilyoner maç linki yapıştır"); return; }
   try { localStorage.setItem("bUrl", u); } catch (e) {}
+  u = Bilyoner.kadroUrl(u); $("bUrl").value = u;
   liveLoaded = false; Android.bilyonerLoad(u);
   $("liveOut").innerHTML = `<div class="card muted" style="text-align:center">Sayfa açılıyor…</div>`;
   startReading(3500);
@@ -382,7 +384,8 @@ async function findB(h, a) {
         await sleep(1000);
         const u = await call("bilyonerUrl");
         if (u && /mac-karti/.test(u)) {
-          $("bUrl").value = u; try { localStorage.setItem("bUrl", u); } catch (e) {}
+          const ku = Bilyoner.kadroUrl(u); Android.bilyonerLoad(ku);
+          $("bUrl").value = ku; try { localStorage.setItem("bUrl", ku); } catch (e) {}
           msg("Bulundu, oranlar okunuyor…"); finding = false; startReading(3000); return;
         }
         const st = await bEval("JSON.stringify(window.__tf||null)");
@@ -404,6 +407,8 @@ async function readB(silent) {
   const txt = await call("bilyonerRead"); if (!txt) return false;
   lastText = txt; const r = Bilyoner.parse(txt, R);
   if (!r.state.ok) return false;
+  let miss = null; try { miss = JSON.parse(await bEval(Bilyoner.MISSING_CODE)); } catch (e) {}
+  r.missing = miss && miss.ok ? miss : null;
   renderLive(r); liveLoaded = true; return true;
 }
 // Canlı ekran açıkken ve bir maç okunmuşken 30 saniyede bir kendiliğinden yenile
@@ -412,9 +417,58 @@ setInterval(() => {
   const onLive = $("t-live").classList.contains("on");
   if (liveLoaded && onLive && document.visibilityState === "visible" && !finding) readB(true);
 }, 30000);
+// ---------- Eksik oyuncuların etkisi ----------
+// Oyuncunun önemi: bu sezon takımın gollerindeki payı (gol + asistin yarısı) ve ne kadar ilk 11 oynadığı.
+function playerImpact(p, season) {
+  const G = Math.max(season ? season[0] : 0, p.played, 1), GF = Math.max(season ? season[1] : 0, 1);
+  const s = Math.min(1, p.starts / G);                                   // ilk 11 payı
+  const inv = Math.min(0.6, (p.goals + 0.5 * p.assists) / GF);          // gollerdeki payı
+  const pos = p.pos || "";
+  let att = 1, def = 1;
+  if (p.stats) {
+    att *= 1 - 0.5 * inv;                                              // yerine oynayan da bir şey katar: etkinin yarısı
+    if (pos === "Forvet" || pos === "Orta Saha") att *= 1 - 0.03 * s;
+    if (pos === "Defans") def *= 1 + 0.06 * s;
+    if (pos === "Kaleci" && s >= 0.5) def *= 1 + 0.10 * s;
+    if (pos === "Orta Saha") def *= 1 + 0.02 * s;
+  }
+  let why;
+  if (!p.stats) why = "istatistiği yok, hesaba katılmadı";
+  else if (inv >= 0.15) why = `takımın gollerinin %${Math.round(inv * 100)}'inde payı var`;
+  else if (s >= 0.6) why = "ilk 11'in değişmezi";
+  else if (s >= 0.3) why = "ara sıra ilk 11'de";
+  else why = "az süre alıyor, etkisi küçük";
+  return { att, def, why, big: p.stats && (inv >= 0.15 || s >= 0.6) };
+}
+function teamImpact(list, season) {
+  let att = 1, def = 1; const rows = [];
+  for (const p of list || []) { const i = playerImpact(p, season); att *= i.att; def *= i.def; rows.push({ ...p, ...i }); }
+  return { att: Math.max(0.75, att), def: Math.min(1.25, def), rows };
+}
+function impactText(name, t) {
+  const a = Math.round((1 - t.att) * 100), d = Math.round((t.def - 1) * 100);
+  const parts = [];
+  if (a >= 2) parts.push(`gol atma gücü %${a} düştü`);
+  if (d >= 2) parts.push(`savunması zayıfladı, %${d} daha çok gol yiyebilir`);
+  return parts.length ? `<b>${name}</b>: ${parts.join(", ")}.` : `<b>${name}</b>: eksiklerin etkisi küçük.`;
+}
+function missingCard(st, imp) {
+  const side = (name, t) => !t.rows.length ? `<div class="muted" style="margin:6px 0">${name}: eksik yok.</div>` :
+    `<div style="margin:8px 0 4px">${impactText(name, t)}</div>` + t.rows.map((p) =>
+      `<div class="kv"><span>${p.big ? "⚠️" : "•"} ${p.name}${p.pos ? ` <span class="muted">(${p.pos.toLowerCase()})</span>` : ""}<br><span class="muted" style="font-size:12px">${p.reason} · ${p.why}</span></span></div>`).join("");
+  return `<div class="card"><h3>Eksikler</h3>${side(st.homeLabel, imp.home)}${side(st.awayLabel, imp.away)}
+    <div class="muted" style="font-size:12px;margin-top:6px">Tahminler bu eksiklere göre ayarlandı.</div></div>`;
+}
+
 function renderLive(r) {
   const st = r.state, L = R.leagues[st.league];
-  let head, info = "", body = "";
+  let head, info = "", body = "", mcard = "";
+  if (r.missing) {
+    const se = L.season || {};
+    const imp = { home: teamImpact(r.missing.home, se[st.home]), away: teamImpact(r.missing.away, se[st.away]) };
+    st.adj = { home: imp.home.att, away: imp.away.att, homeDef: imp.home.def, awayDef: imp.away.def };
+    mcard = missingCard(st, imp);
+  }
   if (st.live) {
     const sim = Engine.live(L, st.home, st.away, st);
     head = `<div class="score"><div class="t">${st.homeLabel}</div><div style="text-align:center"><div class="s">${st.goals[0]} - ${st.goals[1]}</div><span class="min">${st.halftime ? "İY" : st.minute + "'"}</span></div><div class="t">${st.awayLabel}</div></div>`;
@@ -429,7 +483,7 @@ function renderLive(r) {
     body = `<div class="sec">🎯 Reis, maçın kalanı için</div>${picks.length ? picks.map(pickCard).join("") : '<div class="card muted">Şu an net bir şey söyleyemiyorum reis.</div>'}`;
   } else {
     // Maç öncesi: Simülasyon ekranının aynısı (sadece takım verisi)
-    const h = st.homeLabel, a = st.awayLabel, s = Engine.summarize(Engine.simulate(L, st.home, st.away, 20000));
+    const h = st.homeLabel, a = st.awayLabel, s = Engine.summarize(Engine.simulate(L, st.home, st.away, 20000, st.adj));
     const picks = simSummary(s, h, a);
     savePicks(st, picks);
     head = `<div class="score"><div class="t">${h}</div><div style="text-align:center"><span class="tag">MAÇ ÖNCESİ</span></div><div class="t">${a}</div></div>`;
@@ -437,7 +491,7 @@ function renderLive(r) {
     body = `<div class="sec">🎯 Reis, kısaca</div>${picks.map(pickCard).join("")}`;
   }
   $("liveOut").innerHTML = `<div class="card">${head}${st.leagueMismatch ? '<div class="tag warn">Takımlar farklı liglerden eşleşti, kontrol et</div>' : ""}${info}</div>
-    ${body}<div class="muted" style="text-align:center;margin:8px 0 14px">Tahminler sadece takımların verisinden. Garanti değildir.</div>`;
+    ${mcard}${body}<div class="muted" style="text-align:center;margin:8px 0 14px">Tahminler takımların verisinden ve eksiklerden. Garanti değildir.</div>`;
 }
 // Canlı: maçın kalanı için her konudan bir cümle (sadece model)
 function livePicks(m, H, A) {

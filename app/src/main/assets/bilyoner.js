@@ -155,6 +155,28 @@
       return 'başladı';})()`;
   }
 
-  const api = { parse, matchTeam, teamIndex, norm, keysFor, finderCode };
+  // Kadro sayfasındaki "Eksikler" tablolarını okur. Hangi tablonun hangi takıma ait olduğu logodan anlaşılır
+  // (sayfada ilk görünen logo ev sahibi, ikincisi deplasman).
+  const MISSING_CODE = `(function(){
+    var POS={'Forvet':1,'Orta Saha':1,'Defans':1,'Kaleci':1};
+    var ids=[].slice.call(document.images).map(function(i){var m=(i.getAttribute('src')||'').match(/\\/(\\d+)\\.png/);return m&&m[1]}).filter(Boolean);
+    var order=[];ids.forEach(function(x){if(order.indexOf(x)<0)order.push(x)});
+    var out={ok:!!document.querySelector('[class*="lineup-tab-mc"]'),home:[],away:[]};
+    var seen={};
+    [].slice.call(document.querySelectorAll('.lineup-tab-mc__missing-table')).forEach(function(t){
+      var img=t.querySelector('img'),m=img&&(img.getAttribute('src')||'').match(/\\/(\\d+)\\.png/),id=m?m[1]:'?';
+      if(seen[id])return;seen[id]=1;
+      var side=id===order[0]?'home':id===order[1]?'away':null;if(!side)return;
+      out[side]=[].slice.call(t.querySelectorAll('.lineup-tab-mc__missing-row')).map(function(r){
+        var c=[].slice.call(r.querySelectorAll('*')).filter(function(e){return !e.children.length&&e.textContent.trim()}).map(function(e){return e.textContent.trim()});
+        var pos=POS[c[1]]?c[1]:null,rest=c.slice(pos?2:1),v=rest.slice(1),n=function(x){return /^\\d+$/.test(x)?+x:0};
+        return {name:c[0],pos:pos,reason:rest[0]||'',played:n(v[0]),starts:n(v[1]),goals:n(v[2]),assists:n(v[3]),stats:!!v[0]&&v[0]!=='-'};
+      });
+    });
+    return JSON.stringify(out);})()`;
+  // Maç linkini kadro sayfasına çevir (kadro sayfasında üstte canlı skor da var)
+  const kadroUrl = (u) => String(u).replace(/\/(oranlar|detay|kadro|karsilastirma|istatistik)(\/[^?#]*)?([?#].*)?$/, "/kadro").replace(/(\/mac-karti\/futbol\/\d+)\/?$/, "$1/kadro");
+
+  const api = { MISSING_CODE, kadroUrl, parse, matchTeam, teamIndex, norm, keysFor, finderCode };
   if (typeof module !== "undefined") module.exports = api; else root.Bilyoner = api;
 })(this);

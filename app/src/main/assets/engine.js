@@ -66,7 +66,8 @@
   function prematch(L, home, away, adj) {
     adj = adj || {};
     let [lh, la] = dcRates(L, home, away);
-    lh *= adj.home || 1; la *= adj.away || 1;
+    // home/away: hücum gücü çarpanı · homeDef/awayDef: o takımın yediği gol çarpanı (eksik savunmacı = daha çok gol yer)
+    lh *= (adj.home || 1) * (adj.awayDef || 1); la *= (adj.away || 1) * (adj.homeDef || 1);
     const ht = glm(L.ht, home, away), h2 = glm(L.h2, home, away);
     const share = ht && h2 ? [ht[0] / (ht[0] + h2[0]), ht[1] / (ht[1] + h2[1])] : [0.44, 0.44];
     return { lh, la, rho: L.dc.rho, share, corner: glm(L.corner, home, away), yellow: glm(L.yellow, home, away) };
@@ -136,7 +137,7 @@
 
   function live(L, home, away, st, n, seed) {
     // st = {minute, goals:[h,a], xg:[h,a]|null, corners:[h,a]|null, reds:[h,a], stoppage}
-    n = n || 30000; const r = rng(seed || 7), P = prematch(L, home, away);
+    n = n || 30000; const r = rng(seed || 7), P = prematch(L, home, away, st.adj);
     const minute = Math.min(st.minute, 95), stop = st.stoppage == null ? 5 : st.stoppage;
     const rem = Math.max(90 + stop - minute, 1), g = st.goals, reds = st.reds || [0, 0];
     const state = (i) => (g[i] > g[1 - i] ? "lead" : g[i] < g[1 - i] ? "trail" : "draw");
